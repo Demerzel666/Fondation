@@ -1,0 +1,106 @@
+# INDEX PROJET FONDATION-IA
+# Généré automatiquement — 7 fichiers
+# Format: chemin (lignes) puis signatures
+########################################
+
+src/cli.py (1360 lignes)
+  import sys
+  import os
+  import requests
+  import subprocess
+  import json
+  import re
+  import time
+  import datetime.datetime
+  import pygments.highlight
+  import pygments.lexers.guess_lexer, get_lexer_by_name
+  import pygments.formatters.Terminal256Formatter
+  import src.db.init_db, create_project, list_projects, get_project, delete_project
+  import src.db.create_conversation, list_conversations, delete_conversation, get_messages
+  import src.db.add_message
+  import src.context.build_prompt, save_response
+  def save_cli_history() (line 107)
+  def clear_screen() (line 125)
+  def colorize_code(code, lang) (line 131)
+  def auto_git_commit_secure(chemin_fichier, description) (line 153)
+  def print_response(response) (line 339)
+  def print_banner() (line 371)
+  def show_main_menu() (line 385)
+  def show_project_menu(mode_state) (line 405)
+  def check_server(url) (line 431)
+  def kill_all_servers() (line 449)
+  def manage_server(target_mode) (line 461)
+  def send_to_model(prompt, mode) (line 535)
+  def run_chat_loop(mode_state) (line 583)
+  def main() (line 2413)
+
+src/context.py (260 lignes)
+  import sys
+  import os
+  import src.rag.search_context, format_context, detect_domain
+  import src.db.get_messages, add_message, get_conversation_summary
+  def build_prompt(conversation_id, user_input, mode, loaded_files) (line 239)
+  def save_response(conversation_id, content, rag_sources) (line 407)
+
+src/db.py (234 lignes)
+  import os
+  import sqlite3
+  import json
+  import datetime.datetime
+  def get_conn() (line 29)
+  def init_db() (line 45)
+  def create_project(name, description, model_mode) (line 129)
+  def list_projects() (line 159)
+  def get_project(project_id) (line 179)
+  def delete_project(project_id) (line 199)
+  def create_conversation(project_id, title) (line 221)
+  def list_conversations(project_id) (line 255)
+  def delete_conversation(conversation_id) (line 277)
+  def update_summary(conversation_id, summary) (line 295)
+  def add_message(conversation_id, role, content, rag_sources, token_count) (line 321)
+  def get_messages(conversation_id, limit) (line 355)
+  def get_conversation_summary(conversation_id) (line 397)
+
+src/hello_test.py (2 lignes)
+  (vide)
+
+src/ingest_code.py (243 lignes)
+  import sys
+  import os
+  import re
+  import chromadb
+  import sentence_transformers.SentenceTransformer
+  def chunk_text(text, max_tokens) (line 47)
+  def collect_files(path, extensions) (line 97)
+  def get_stored_mtime(collection, filepath) (line 135)
+  def delete_file_chunks(collection, filepath) (line 157)
+  def ingest_file(filepath, collection, model, title) (line 173)
+  def main() (line 281)
+
+src/rag.py (243 lignes)
+  import chromadb
+  import sentence_transformers.SentenceTransformer
+  import numpy
+  import os
+  import logging
+  def get_embedding_model() (line 67)
+  def get_collection(domain) (line 85)
+  def detect_domain(query, mode) (line 127)
+  def search_context(query, top_k, domain, mode, threshold) (line 205)
+  def format_context(contexts) (line 335)
+  def get_stats() (line 387)
+
+src/tools.py (244 lignes)
+  import os
+  import re
+  import math
+  def resolve_path(path) (line 65)
+  def tool_read(filepath) (line 83)
+  def tool_ls(dirpath) (line 151)
+  def _clean_markdown_blocks(content) (line 235)
+  def tool_write(filepath, content) (line 263)
+  def tool_edit(filepath, content) (line 291)
+  def extract_tools(response) (line 321)
+  def has_done_tag(response) (line 375)
+  def execute_tools(response) (line 385)
+  def load_project_index() (line 475)

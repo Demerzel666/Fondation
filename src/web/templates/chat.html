@@ -1,0 +1,148 @@
+{% extends "base.html" %}
+{% block content %}
+{% if thinking_refresh %}
+<meta http-equiv="refresh" content="{{ thinking_refresh_seconds }}; url={{ thinking_refresh_url }}">
+{% endif %}
+<div class="layout">
+    <aside class="sidebar">
+        <h2>👤 {{ username }}</h2>
+        <a href="/logout" class="logout-link">Déconnexion</a>
+        <a href="/global-context" class="context-global-link">🌍 Contexte global</a>
+
+        <form method="POST" action="/project/new" class="inline-form">
+            <input type="text" name="name" placeholder="Nouveau projet" autocomplete="off">
+            <button type="submit">+</button>
+        </form>
+
+        <div class="list">
+            {% for p in projects %}
+            <div class="item-row">
+                <a href="/?project={{ p.id }}" class="item {% if current_project == p.id %}active{% endif %}">
+                    📁 {{ p.name }}
+                </a>
+                <form method="POST" action="/project/delete/{{ p.id }}" class="delete-form">
+                    <button type="submit" class="delete-btn" title="Supprimer">✕</button>
+                </form>
+            </div>
+            {% endfor %}
+            {% if not projects %}
+            <p class="muted">Aucun projet</p>
+            {% endif %}
+        </div>
+    </aside>
+
+    <main class="chat-area">
+        {% if current_project %}
+        <div class="chat-header">
+            <div class="chat-header">
+            <div class="context-links">
+                <a href="/project/context/{{ current_project }}">⚙️ Contexte projet</a>
+            </div>
+            <form method="POST" action="/conversation/new" class="inline-form">
+                <input type="hidden" name="project_id" value="{{ current_project }}">
+                <input type="text" name="title" placeholder="Titre conversation">
+                <button type="submit">Nouvelle conv</button>
+            </form>
+
+            {% if conversations %}
+            <nav class="conv-nav">
+                {% for c in conversations %}
+                <div class="conv-row">
+                    <a href="/?project={{ current_project }}&conv={{ c.id }}"
+                       class="conv-item {% if current_conv == c.id %}active{% endif %}">
+                        {{ c.title }}
+                    </a>
+                    <form method="POST" action="/conversation/delete/{{ c.id }}" class="delete-form">
+                        <input type="hidden" name="project_id" value="{{ current_project }}">
+                        <button type="submit" class="delete-btn" title="Supprimer">✕</button>
+                    </form>
+                </div>
+                {% endfor %}
+            </nav>
+            {% endif %}
+        </div>
+        {% else %}
+        <div class="empty"><p>Sélectionne ou crée un projet</p></div>
+        {% endif %}
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+        <div class="flashes">
+            {% for category, message in messages %}
+            <p class="flash {{ category }}">{{ message }}</p>
+            {% endfor %}
+        </div>
+        {% endif %}
+        {% endwith %}
+
+
+        {% if editing_context %}
+        <div class="context-editor">
+            <h3>{% if context_type == 'global' %}🌍 Contexte global{% else %}⚙️ Contexte du projet{% endif %}</h3>
+            <p class="context-hint">Ces instructions sont ajoutées au system prompt de l'IA à chaque message.</p>
+            <form method="POST" action="{% if context_type == 'global' %}/global-context{% else %}/project/context/{{ current_project }}{% endif %}">
+                <textarea name="context" rows="12" placeholder="Instructions spéciales pour l'IA...">{{ context_text }}</textarea>
+                <button type="submit">💾 Enregistrer</button>
+            </form>
+            <a href="{% if context_type == 'global' %}/{% else %}/?project={{ current_project }}{% endif %}" class="cancel-link">← Annuler</a>
+        </div>
+        {% endif %}
+
+
+        {% if current_conv %}
+        <div class="messages-meta">
+            {% if full_history %}
+            <a href="/?project={{ request.args.get('project', '') }}&conv={{ current_conv }}">← Retour aux messages récents</a>
+            {% elif messages and messages|length >= 6 %}
+            <a href="/history/{{ current_conv }}">📜 Voir tout l'historique</a>
+            {% endif %}
+        </div>
+
+        <div class="messages">
+            {% for m in messages %}
+            <div class="msg {{ m.role }}" {% if loop.last and not thinking %}id="last-msg"{% endif %}>
+                <span class="role-label">{% if m.role == 'user' %}Toi{% else %}Demerzel{% endif %}</span>
+                <div class="msg-content">{{ m.content }}</div>
+            </div>
+            {% endfor %}
+
+            {% if thinking %}
+            <div class="msg assistant thinking-msg" id="last-msg">
+                <span class="role-label">Demerzel</span>
+                <div class="msg-content thinking-content">
+                    {% if queue_position %}
+                    <span class="typing-text">🕐 Position {{ queue_position }} dans la queue...</span>
+                    {% else %}
+                    <div class="spinner"></div>
+                    <span class="typing-text">Demerzel réfléchit</span>
+                    <span class="dots"><span>.</span><span>.</span><span>.</span></span>
+                    {% endif %}
+                </div>
+            </div>
+            {% endif %}
+
+            <div id="bottom"></div>
+        </div>
+
+        {% if not thinking %}
+        <form method="POST" action="/send#last-msg" class="input-form">
+            <input type="hidden" name="conversation_id" value="{{ current_conv }}">
+            <input type="hidden" name="project_id" value="{{ current_project }}">
+            <textarea name="text" placeholder="Écris ton message..." rows="3" required></textarea>
+            <button type="submit">Envoyer</button>
+        </form>
+        {% else %}
+        <div class="input-form disabled-form">
+            <p>⏳ Demerzel réfléchit, patiente...</p>
+        </div>
+        {% endif %}
+        {% elif current_project and conversations %}
+        <div class="empty"><p>Sélectionne une conversation</p></div>
+        {% elif current_project %}
+        <div class="empty"><p>Crée une conversation pour commencer</p></div>
+        {% endif %}
+
+    </main>
+</div>
+
+{% endblock %}

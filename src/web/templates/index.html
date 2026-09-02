@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fondation-IA</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <!-- Écran de connexion -->
+    <div id="login-screen">
+        <h1>🌍 Fondation-IA</h1>
+        <input type="text" id="login-name" placeholder="Nom" autocomplete="off">
+        <input type="password" id="login-token" placeholder="Token" autocomplete="off">
+        <button id="login-btn" onclick="doLogin()">Se connecter</button>
+        <div id="login-error"></div>
+    </div>
+
+    <!-- Interface principale (cachée jusqu'à l'auth) -->
+    <div id="main-app" style="display:none;">
+        <div id="sidebar">
+            <h2 id="user-display"></h2>
+            <button onclick="showNewProject()">+ Nouveau projet</button>
+            <div id="project-list"></div>
+        </div>
+        <div id="chat-area">
+            <div id="chat-header">
+                <select id="conversation-select"></select>
+                <button onclick="newConversation()">Nouvelle conv</button>
+            </div>
+            <div id="messages"></div>
+            <div id="input-area">
+                <textarea id="chat-input" placeholder="Écris ton message..." rows="2"></textarea>
+                <button onclick="sendMessage()">Envoyer</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- SocketIO client -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.5/socket.io.min.js"></script>
+    <script src="/static/app.js"></script>
+</body>
+</html>

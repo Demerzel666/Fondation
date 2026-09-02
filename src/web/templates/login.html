@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="login-container">
+    <h1>🌍 Fondation-IA</h1>
+    {% if error %}
+    <p class="error">{{ error }}</p>
+    {% endif %}
+    <form method="POST" action="/login">
+        <input type="text" name="name" placeholder="Nom" autocomplete="off"><br>
+        <input type="password" name="token" placeholder="Token" autocomplete="off"><br>
+        <button type="submit">Se connecter</button>
+    </form>
+</div>
+{% endblock %}
