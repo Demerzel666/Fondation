@@ -32,6 +32,12 @@ def require_auth(f):
         return f(*args, **kwargs)
     return decorated
 
+# ── MANIFESTE ────────────────────────────────────────────────────────────────
+
+@app.route('/manifeste')
+def manifeste():
+    return render_template('manifeste.html')
+
 # ── AUTH ───────────────────────────────────────────────────────────────────
 
 @app.route('/login', methods=['GET', 'POST'])
