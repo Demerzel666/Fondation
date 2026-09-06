@@ -5,11 +5,12 @@
 
 # Racine du projet = dossier parent du dossier scripts/
 PROJECT_ROOT="$(cd "$(dirname "$(dirname "$0")")" && pwd)"
+export LD_LIBRARY_PATH="/opt/rocm/lib:${LD_LIBRARY_PATH:-}"
 
 # binaire llama-server (configurable via env)
 export PATH="${LLAMA_CPP_BIN:-/home/data/llama.cpp/build/bin}:$PATH"
 
-MODEL="$PROJECT_ROOT/models/Qwen2.5-32B-Q4_K_M.gguf"
+MODEL="${DEMERZEL_MODEL:-$PROJECT_ROOT/models/demerzel.gguf}"
 PORT=8080
 
 echo "=== FONDATION-IA : LANCEMENT DEMERZEL ==="

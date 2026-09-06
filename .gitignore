@@ -27,3 +27,12 @@ secrets.*
 # Système
 .DS_Store
 Thumbs.db
+
+__pycache__/
+*.pyc
+nohup.out
+logs/
+*.gguf
+chroma_db/
+*.bak
+.env

@@ -3,13 +3,14 @@
 # ENGINE PARTAGÉ — Logique de chat indépendante de l'interface
 # Utilisé par cli.py (terminal) et web/app.py (navigateur)
 # =============================================================================
-
-"""
-    Moteur central Fondation-IA
-    - process_message(): Orchestration complète (context building, RAG, routing)
-    - send_to_model(): Envoi HTTP vers llama.cpp avec lock queue
-    - Génération file map pour gros fichiers (>50ko)
-"""
+# v2 — MIGRATION MESSAGES ROLÉS :
+# - build_prompt() retourne "messages" (liste rolée) — voie principale
+# - send_to_model() accepte une liste de messages OU une string (fallback)
+# - manage_server() ne tue les serveurs QUE si le bon modèle n'est pas actif
+# - Le message user est sauvegardé APRÈS build_prompt (sinon doublon dans
+#   l'historique envoyé au modèle)
+# - Plus de "full_prompt" : tout part en messages rolés, llama-server
+#   applique lui-même le chat template Qwen.
 
 import os
 import re
@@ -44,11 +45,11 @@ def kill_all_servers():
 
 
 def manage_server(target_mode):
-    """Orchestrateur : tue TOUJOURS puis démarre le bon modèle selon le mode."""
+    """Démarre le serveur du mode cible SEULEMENT s'il n'est pas déjà actif."""
     if target_mode == "code":
         health_url = "http://localhost:8081/health"
         script_start = SCRIPT_CODER
-        target_name = "Qwen2.5-Coder-14B"
+        target_name = "CODER"
         expected_port = 8081
     else:
         health_url = "http://localhost:8080/health"
@@ -56,9 +57,13 @@ def manage_server(target_mode):
         target_name = "DEMERZEL"
         expected_port = 8080
 
+    # Déjà actif ? Rien à faire (sinon chaque message = reload complet)
+    if check_server(health_url):
+        return True
+
     print(f"\n[ORCHESTRATEUR] Arrêt des serveurs en cours...")
-    kill_all_servers()  # ← TOUJOURS TUE D'ABORD !
-    
+    kill_all_servers()
+
     print(f"[ORCHESTRATEUR] Démarrage de {target_name} sur le port {expected_port}...")
     subprocess.Popen(
         [script_start],
@@ -78,8 +83,13 @@ def manage_server(target_mode):
     print(f"\n[ERROR] Échec démarrage après 3 minutes (port {expected_port})")
     return False
 
-def send_to_model(prompt, mode):
-    """Envoie le prompt au bon serveur (avec lock inter-processus)."""
+
+def send_to_model(payload, mode):
+    """Envoie au bon serveur (avec lock inter-processus).
+
+    payload : liste de messages rolés [{"role": ..., "content": ...}]
+              OU string legacy (enveloppée en message user).
+    """
     from src.queue_manager import acquire_model_lock, release_model_lock
 
     # Attendre le lock (max 5 min)
@@ -94,9 +104,15 @@ def send_to_model(prompt, mode):
         url = LLAMA_CODER_URL if mode == "code" else LLAMA_DEMERZEL_URL
         manage_server(mode)
 
+        payload_messages = (
+            payload
+            if isinstance(payload, list)
+            else [{"role": "user", "content": payload}]
+        )
+
         response = requests.post(url, json={
             "model": "default",
-            "messages": [{"role": "user", "content": prompt}],
+            "messages": payload_messages,
             "temperature": 0.7,
             "max_tokens": 16384
         }, timeout=180)
@@ -111,6 +127,7 @@ def send_to_model(prompt, mode):
         return f"[ERROR] {type(e).__name__}: {e}"
     finally:
         release_model_lock()
+
 
 # ── UTILITAIRES ──────────────────────────────────────────────────
 
@@ -142,16 +159,8 @@ def generate_file_map(filepath):
 # ── PIPELINE PRINCIPAL ───────────────────────────────────────────
 
 def process_message(user_input, conversation_id, mode_state, callbacks=None):
-    """
-    Pipeline complet de traitement d'un message utilisateur.
-    
-   callbacks: dict optionnel avec fonctions :
-        on_progress(msg)   : progression ("...")
-        on_rag(count)       : sources RAG trouvées
-        on_files(count)     : fichiers chargés en contexte
-        on_tool(log)        : un outil s'exécute
-        on_route(info_dict) : route interceptée (Demerzel → Coder)
-    
+    """Pipeline complet : contexte → RAG → messages rolés → modèle.
+
     Returns: (response_text, rag_sources_list)
     """
     from src.db import add_message
@@ -165,10 +174,7 @@ def process_message(user_input, conversation_id, mode_state, callbacks=None):
         if fn:
             fn(*args)
 
-    # 1. Sauvegarder le message utilisateur
-    add_message(conversation_id, "user", user_input)
-
-    # 2. Construire le prompt avec contexte + RAG + fichiers chargés
+    # 1. Construire les messages (system + historique + question courante)
     context_result = build_prompt(
         conversation_id,
         user_input,
@@ -182,13 +188,19 @@ def process_message(user_input, conversation_id, mode_state, callbacks=None):
     if context_result.get('loaded_files'):
         cb('files', context_result['loaded_files'])
 
-    # 3. Ajouter le fichier actif si présent
+    api_messages = context_result['messages']
+
+    # 2. Sauvegarder le message utilisateur APRÈS build_prompt
+    #    (sinon il serait dupliqué : historique + question courante)
+    add_message(conversation_id, "user", user_input)
+
+    # 3. Fichier actif → annexé au system prompt
     if mode_state.get('active_file'):
         active_name = os.path.basename(mode_state['active_file'])
         active_path = mode_state['active_file']
         file_map = mode_state.get('file_map', '')
 
-        context_result['full_prompt'] += (
+        api_messages[0]["content"] += (
             f"\n\n[FICHIER ACTIF] {active_name}\n"
             f"Chemin : {active_path}\n"
             f"Structure du fichier :\n{file_map}\n\n"
@@ -205,7 +217,7 @@ def process_message(user_input, conversation_id, mode_state, callbacks=None):
             f"4. Un bloc par modification\n"
         )
 
-    # 4. Ajouter le workspace si présent
+    # 4. Workspace → annexé au system prompt
     if mode_state.get('workspace_files') and mode_state.get('workspace_path'):
         ws_path = mode_state['workspace_path']
         ws_files = mode_state['workspace_files']
@@ -219,7 +231,7 @@ def process_message(user_input, conversation_id, mode_state, callbacks=None):
                     file_maps.append(f"--- {rel_path} ---\n{fmap}")
 
         if file_maps:
-            context_result['full_prompt'] += (
+            api_messages[0]["content"] += (
                 f"\n\n[WORKSPACE] {ws_path}\n"
                 f"Fichiers actifs ({len(ws_files)}) :\n"
                 f"{chr(10).join(file_maps)}\n\n"
@@ -227,10 +239,16 @@ def process_message(user_input, conversation_id, mode_state, callbacks=None):
                 f"Utilise [FUNC:chemin|nom_fonction] pour lire une fonction avant de proposer un patch.\n"
             )
 
-    # 5. Envoyer au modèle
+    # 5. Envoyer au modèle (messages rolés)
     cb('progress', '...')
+    print("\n===== DEBUG : SYSTEM PROMPT RÉEL ENVOYÉ =====")
+    print(api_messages[0]["content"][:3000])
+    print(f"... (total : {len(api_messages[0]['content'])} chars)")
+    print("===== FIN DEBUG =====\n")
+
+
     ai_content = send_to_model(
-        context_result['full_prompt'],
+        api_messages,
         context_result.get('mode_used', mode_state['mode'])
     )
 
@@ -269,25 +287,28 @@ def process_message(user_input, conversation_id, mode_state, callbacks=None):
 
             mode_state['mode'] = 'code'
 
-            coder_prompt = f"L'utilisateur a demandé : \"{user_input}\"\n\n"
+            coder_content = f"L'utilisateur a demandé : \"{user_input}\"\n\n"
             if code_content:
-                coder_prompt += f"Voici le code réel extrait depuis le disque :\n\n"
-                coder_prompt += f"--- {route_file} ({code_range}) ---\n"
-                coder_prompt += f"{code_content}\n\n---\n\n"
+                coder_content += (
+                    f"Voici le code réel extrait depuis le disque :\n\n"
+                    f"--- {route_file} ({code_range}) ---\n"
+                    f"{code_content}\n\n---\n\n"
+                )
                 if mode_state.get('active_file'):
-                    coder_prompt += (
-                        f"\n\n[FICHIER ACTIF] {os.path.basename(mode_state['active_file'])}\n"
+                    coder_content += (
+                        f"\n[FICHIER ACTIF] {os.path.basename(mode_state['active_file'])}\n"
                         f"Si tu proposes des modifications, utilise ce format EXACT :\n"
                         f"<<< OLD\n(ancien code exact)\n"
                         f">>> NEW\n(nouveau code)\n"
                     )
-                coder_prompt += f"Réponds à la demande de l'utilisateur en utilisant ce code réel."
+                coder_content += "Réponds à la demande de l'utilisateur en utilisant ce code réel."
             else:
-                coder_prompt += f"Tâche : {route_target}\n\n"
-                coder_prompt += f"Réponds à la demande de l'utilisateur."
+                coder_content += f"Tâche : {route_target}\n\nRéponds à la demande de l'utilisateur."
+
+            coder_messages = [{"role": "user", "content": coder_content}]
 
             cb('progress', '...')
-            ai_content = send_to_model(coder_prompt, 'code')
+            ai_content = send_to_model(coder_messages, 'code')
             route_intercepted = True
 
     # 7. Boucle agent (si mode code)
@@ -298,7 +319,7 @@ def process_message(user_input, conversation_id, mode_state, callbacks=None):
             ai_content = re.sub(r'\[(?:EDIT|WRITE):[^\]]*\]', '', ai_content).strip()
 
         agent_max_iter = 10
-        original_prompt = context_result['full_prompt']
+        agent_system = api_messages[0]["content"]  # system prompt + contexte code
         read_files = set()
 
         for agent_iter in range(agent_max_iter):
@@ -311,11 +332,11 @@ def process_message(user_input, conversation_id, mode_state, callbacks=None):
 
             if t_type == 'READ' and t_target in read_files:
                 tool_results = "(fichier déjà lu précédemment)"
-                agent_prompt = (
-                    f"Voici le contenu du fichier demandé.\n\n"
+                agent_instruction = (
+                    "Voici le contenu du fichier demandé.\n\n"
                     f"{tool_results}\n\n"
-                    f"Répond UNIQUEMENT avec ce contenu, sans aucun tag. "
-                    f"Copie-colle le contenu du fichier puis termine avec [DONE]"
+                    "Réponds UNIQUEMENT avec ce contenu, sans aucun tag. "
+                    "Copie-colle le contenu du fichier puis termine avec [DONE]"
                 )
             else:
                 if t_type == 'READ':
@@ -334,28 +355,28 @@ def process_message(user_input, conversation_id, mode_state, callbacks=None):
                     cb('tool', f"{tool_log} ({agent_iter+1}/{agent_max_iter})")
 
                 if t_type == 'GREP':
-                    agent_prompt = (
-                        f"[REQUÊTE UTILISATEUR]\n{original_prompt}\n\n"
+                    agent_instruction = (
+                        f"[REQUÊTE UTILISATEUR]\n{user_input}\n\n"
                         f"[RÉSULTAT GREP]\n{tool_results}\n\n"
                         f"Tu as les numéros de ligne des fonctions trouvées.\n"
                         f"Utilise [FUNC:chemin|nom_fonction] pour extraire la fonction complète.\n"
-                        f"Ou [SED:chemin|start|end] si tu veux lire un range précis.\n"
+                        f"Ou [SED:chemin|start|end] si tu veux lire un range précis.\n\n"
                     )
                 elif t_type == 'FUNC':
-                    agent_prompt = (
-                        f"[REQUÊTE UTILISATEUR]\n{original_prompt}\n\n"
+                    agent_instruction = (
+                        f"[REQUÊTE UTILISATEUR]\n{user_input}\n\n"
                         f"[RÉSULTAT FUNC]\n{tool_results}\n\n"
                         f"Affiche le contenu de la fonction à l'utilisateur.\n"
-                        f"Termine avec [DONE].\n"
+                        f"Termine avec [DONE].\n\n"
                     )
                 else:
-                    agent_prompt = (
-                        f"[REQUÊTE UTILISATEUR]\n{original_prompt}\n\n"
+                    agent_instruction = (
+                        f"[REQUÊTE UTILISATEUR]\n{user_input}\n\n"
                         f"[RÉSULTAT DE L'OUTIL]\n{tool_results}\n\n"
                     )
 
             if mode_state.get('active_file'):
-                agent_prompt += (
+                agent_instruction += (
                     f"Tu as maintenant le contenu demandé.\n"
                     f"Consulte la file_map du fichier actif pour identifier les bonnes lignes.\n"
                     f"PROPOSE une modification avec ce format EXACT :\n"
@@ -364,16 +385,21 @@ def process_message(user_input, conversation_id, mode_state, callbacks=None):
                     f">>>>>>> REPLACE\n"
                 )
             else:
-                agent_prompt += (
+                agent_instruction += (
                     f"Tu as maintenant le contenu demandé. "
                     f"AFFICHE le contenu à l'utilisateur dans ta réponse. "
                     f"Ne mets PLUS de tags [READ] ou [LS]. "
                     f"Écris ta réponse normale puis termine avec [DONE]."
                 )
 
+            agent_messages = [
+                {"role": "system", "content": agent_system},
+                {"role": "user", "content": agent_instruction}
+            ]
+
             cb('progress', '...')
             ai_content = send_to_model(
-                agent_prompt,
+                agent_messages,
                 context_result.get('mode_used', mode_state['mode'])
             )
 

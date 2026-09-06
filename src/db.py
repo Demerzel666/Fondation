@@ -85,7 +85,8 @@ def init_db():
 
         CREATE TABLE IF NOT EXISTS invites (
             id          INTEGER PRIMARY KEY AUTOINCREMENT,
-            code        TEXT UNIQUE NOT NULL,
+            code        TEXT,
+            code_hash   TEXT,
             used        INTEGER DEFAULT 0,
             created_at  TEXT DEFAULT (datetime('now', 'localtime'))
         );

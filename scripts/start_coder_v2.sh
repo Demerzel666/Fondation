@@ -3,6 +3,7 @@
 LLAMA_CPP_BIN="${LLAMA_CPP_BIN:-/home/data/llama.cpp/build/bin}"
 MODEL="/home/data/models/Qwen2.5-Coder-14B-Instruct-abliterated-Q5_K_M.gguf"
 PORT=8081
+export LD_LIBRARY_PATH="/opt/rocm/lib:${LD_LIBRARY_PATH:-}"
 
 exec $LLAMA_CPP_BIN/llama-server \
   -m "$MODEL" \

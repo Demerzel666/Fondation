@@ -1,0 +1,76 @@
+#!/usr/bin/env python3
+"""Ingestion du document 'Amour et Révolution' (HTML) dans le RAG Fondation.
+Usage: /home/data/ml_env/bin/python3 scripts/ingestion_amour_revolution.py <fichier>.html
+"""
+import sys, re, uuid
+import html as htmlmod
+from pathlib import Path
+
+# === CONFIG — alignée sur ton installation ===
+CHROMA_DIR = "/home/data/fondation-ia-dev/rag/chroma_db"
+COLLECTION = "fondation_knowledge"
+EMBED_MODEL = "intfloat/multilingual-e5-large"
+TAILLE_CHUNK = 1200   # caractères (~300 tokens), cohérent avec tes 8610 chunks existants
+CHEVAUCHEMENT = 200
+
+def html_vers_texte(chemin: str) -> str:
+    brut = Path(chemin).read_text(encoding="utf-8")
+    brut = re.sub(r"<style.*?</style>", "", brut, flags=re.S | re.I)   # CSS dehors
+    brut = re.sub(r"<script.*?</script>", "", brut, flags=re.S | re.I)
+    brut = re.sub(r"<(h[1-3]|p|li|tr|blockquote|pre|table|div|hr)[^>]*>",
+                  "\n\n", brut, flags=re.I)
+    brut = re.sub(r"<br\s*/?>", "\n", brut, flags=re.I)
+    brut = re.sub(r"<td[^>]*>", " | ", brut, flags=re.I)  # cellules -> colonnes lisibles
+    brut = re.sub(r"<[^>]+>", "", brut)
+    texte = re.sub(r"[ \t]+", " ", brut)
+    texte = re.sub(r"\n{3,}", "\n\n", texte)
+    return htmlmod.unescape(texte).strip()
+
+def chunker(texte: str, taille: int = TAILLE_CHUNK, chev: int = 150) -> list[str]:
+    paragraphs = [p.strip() for p in texte.split("\n\n") if len(p.strip()) > 40]
+    chunks, courant = [], ""
+    for p in paragraphs:
+        if len(courant) + len(p) <= taille:
+            courant = f"{courant}\n\n{p}" if courant else p
+        else:
+            if courant:
+                chunks.append(courant)
+            courant = p if len(p) <= taille else p[:taille]  # gros para tronqué
+    if courant:
+        chunks.append(courant)
+    return chunks
+
+def main():
+    if len(sys.argv) != 2:
+        sys.exit("Usage: python3 ingestion_amour_revolution.py <document>.html")
+    texte = html_vers_texte(sys.argv[1])
+    chunks = chunker(texte)
+    print(f"[i] Texte extrait : {len(texte)} chars → {len(chunks)} chunks")
+
+    import chromadb
+    from sentence_transformers import SentenceTransformer
+    model = SentenceTransformer(EMBED_MODEL, device="cpu")
+
+    client = chromadb.PersistentClient(path=CHROMA_DIR)
+    coll = client.get_collection("fondation_knowledge")
+    print(f"[i] Collection existante : {coll.count()} chunks")
+
+    # Embeddings avec préfixe E5 OBLIGATOIRE pour les passages
+    embeddings = model.encode(
+        [f"passage: {c}" for c in chunks],
+        normalize_embeddings=True, show_progress_bar=True,
+    ).tolist()
+
+    ids = [f"amour-revolution-{uuid.uuid4().hex[:8]}" for _ in chunks]
+    metadatas = [{
+        "source": "Amour et Révolution — pourquoi le patriarcat doit détruire l'amour pour survivre",
+        "type": "analyse_militante",
+        "version": "2-auditee",
+        "date_audit": "2026-09-05",
+    } for _ in chunks]
+
+    coll.add(ids=ids, documents=chunks, embeddings=embeddings, metadatas=metadatas)
+    print(f"[✓] {len(chunks)} chunks ingérés. Total collection : {coll.count()}")
+
+if __name__ == "__main__":
+    main()

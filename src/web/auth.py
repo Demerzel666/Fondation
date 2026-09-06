@@ -7,7 +7,7 @@ import secrets
 from functools import wraps
 from flask import request, g
 from src.db import authenticate_user, create_invite, register_user
-
+import hashlib
 
 def generate_token():
     """Génère un token d'invitation à usage unique."""
@@ -31,26 +31,39 @@ def create_user_session(name, token, invite_code):
 def validate_session(token):
     """
     Vérifie un token et retourne user_id ou None.
-    Supporte aussi les codes d'invite à usage unique.
+    1. Utilisateurs existants → auth PBKDF2 via db.py
+    2. Codes d'invite à usage unique → SHA-256
     """
-    from src.db import get_conn
+    from src.db import authenticate_user, get_conn
 
-    # 1. Chercher dans les utilisateurs existants
+    # 1. Utilisateurs existants : la vraie auth (PBKDF2 + sel)
+    user_id = authenticate_user(token)
+    if user_id is not None:
+        return user_id
+
+    # 2. Codes d'invite non utilisés
+    submitted = hashlib.sha256(token.encode()).hexdigest()
     conn = get_conn()
-    row = conn.execute('SELECT id FROM users WHERE token_hash = ?', (token,)).fetchone()
-    if row:
-        conn.close()
-        return row[0]
+    rows = conn.execute(
+        'SELECT id, code_hash, code FROM invites WHERE used = 0'
+    ).fetchall()
 
-    # 2. Chercher dans les codes d'invite (non utilisés)
-    row = conn.execute('SELECT id FROM invites WHERE code = ? AND used = 0', (token,)).fetchone()
-    if row:
-        # Marquer comme utilisé (usage unique)
-        conn.execute('UPDATE invites SET used = 1 WHERE id = ?', (row[0],))
+    matched_id = None
+    for row in rows:
+        if row['code_hash'] is not None:
+            ok = (row['code_hash'] == submitted)
+        else:
+            # Migration douce : ancien invite stocké en clair
+            ok = (row['code'] == submitted) or (row['code'] == token)
+        if ok:
+            matched_id = row['id']
+            break
+
+    if matched_id is not None:
+        conn.execute('UPDATE invites SET used = 1 WHERE id = ?', (matched_id,))
         conn.commit()
         conn.close()
-        # Le code a été validé, retourne True pour autoriser l'inscription
-        return row[0]
+        return matched_id
 
     conn.close()
     return None
