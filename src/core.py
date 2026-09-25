@@ -115,7 +115,7 @@ def send_to_model(payload, mode):
             "messages": payload_messages,
             "temperature": 0.7,
             "max_tokens": 16384
-        }, timeout=180)
+        }, timeout=600)
 
         if response.status_code != 200:
             return f"[ERROR] Serveur retourné {response.status_code}: {response.text[:200]}"
@@ -240,11 +240,12 @@ def process_message(user_input, conversation_id, mode_state, callbacks=None):
             )
 
     # 5. Envoyer au modèle (messages rolés)
-    cb('progress', '...')
-    print("\n===== DEBUG : SYSTEM PROMPT RÉEL ENVOYÉ =====")
-    print(api_messages[0]["content"][:3000])
-    print(f"... (total : {len(api_messages[0]['content'])} chars)")
-    print("===== FIN DEBUG =====\n")
+    if os.environ.get("DEMERZEL_DEBUG"):
+        cb('progress', '...')
+        print("\n===== DEBUG : SYSTEM PROMPT RÉEL ENVOYÉ =====")
+        print(api_messages[0]["content"][:3000])
+        print(f"... (total : {len(api_messages[0]['content'])} chars)")
+        print("===== FIN DEBUG =====\n")
 
 
     ai_content = send_to_model(

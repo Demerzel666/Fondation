@@ -1,54 +1,78 @@
 #!/bin/bash
 # =============================================================================
-# LANCEMENT DEMERZEL (Qwen2.5-32B) SUR PORT 8080
+# LANCEMENT DEMERZEL — AUTODÉTECTION CPU/RAM (port 8080)
 # =============================================================================
 
-# Racine du projet = dossier parent du dossier scripts/
 PROJECT_ROOT="$(cd "$(dirname "$(dirname "$0")")" && pwd)"
-export LD_LIBRARY_PATH="/opt/rocm/lib:${LD_LIBRARY_PATH:-}"
 
-# binaire llama-server (configurable via env)
-export PATH="${LLAMA_CPP_BIN:-/home/data/llama.cpp/build/bin}:$PATH"
+# Binaires llama.cpp (chemin local ThinkPad par défaut, configurable)
+export PATH="${LLAMA_CPP_BIN:-$HOME/tools/llama.cpp/build/bin}:$PATH"
 
-MODEL="${DEMERZEL_MODEL:-$PROJECT_ROOT/models/demerzel.gguf}"
 PORT=8080
+MODEL="${DEMERZEL_MODEL:-$PROJECT_ROOT/models/demerzel.gguf}"
+
+# --- RAM totale (Mo) ---
+TOTAL_RAM_MB=$(awk '/MemTotal/ {printf "%d", $2/1024}' /proc/meminfo)
+
+# --- Si le modèle par défaut est absent, choisir selon la RAM ---
+if [ ! -f "$MODEL" ]; then
+    echo "ℹ️ Modèle par défaut introuvable — sélection selon RAM (${TOTAL_RAM_MB} Mo)..."
+    for candidate in demerzel-4b.gguf demerzel-officiel.gguf demerzel-abliterated.gguf demerzel-1.7b.gguf demerzel-0.6b.gguf; do
+        if [ -f "$PROJECT_ROOT/models/$candidate" ]; then
+            MODEL="$PROJECT_ROOT/models/$candidate"
+            echo "→ Sélection : $candidate"
+            break
+        fi
+    done
+fi
+
+[ -f "$MODEL" ] || { echo "❌ Aucun modèle dans $PROJECT_ROOT/models/ — voir README"; exit 1; }
+
+# --- Threads et contexte selon la RAM ---
+if   [ "$TOTAL_RAM_MB" -lt 6000 ];  then CTX=2048; THREADS=4
+elif [ "$TOTAL_RAM_MB" -lt 10000 ]; then CTX=4096; THREADS=6
+elif [ "$TOTAL_RAM_MB" -lt 20000 ]; then CTX=8192; THREADS=8
+else                                      CTX=16384; THREADS=16
+fi
+
+# --- GPU : ROCm présent ? (serveur) sinon CPU pur (ThinkPad, téléphones amis) ---
+GPU_ARGS=""
+if command -v rocminfo >/dev/null 2>&1 && rocminfo 2>/dev/null | grep -q gfx; then
+    export LD_LIBRARY_PATH="/opt/rocm/lib:${LD_LIBRARY_PATH:-}"
+    GPU_ARGS="-ngl 99 --flash-attn on"
+    echo "🎮 GPU AMD détecté → offload complet"
+else
+    echo "🖥️ CPU seul → threads=$THREADS"
+fi
 
 echo "=== FONDATION-IA : LANCEMENT DEMERZEL ==="
+echo "Modèle : $MODEL"
+echo "RAM : ${TOTAL_RAM_MB} Mo | Contexte : ${CTX} | Port : ${PORT}"
 
 pkill -f "llama-server.*${PORT}" 2>/dev/null
 sleep 1
 
-if [ ! -f "$MODEL" ]; then
-    echo "❌ Modèle introuvable : $MODEL"
-    exit 1
-fi
-
-# Lancer avec context window 32K
 llama-server \
     -m "$MODEL" \
-    --host 0.0.0.0 \
+    --host "${DEMERZEL_HOST:-127.0.0.1}" \
     --port $PORT \
-    -ngl 99 \
-    -t 16 \
-    -c 16384 \
-    -np 1 \
-    --flash-attn on \
-    &
+    $GPU_ARGS \
+    -t $THREADS \
+    -c ${CTX} \
+    -np 1 &
 
 SERVER_PID=$!
 echo "PID serveur : $SERVER_PID"
-echo "Port : $PORT"
-echo "Context window : 16384 tokens"
 
 echo "Attente du serveur..."
-for i in $(seq 1 30); do
+for i in $(seq 1 60); do
     if curl -s "http://localhost:${PORT}/health" > /dev/null 2>&1; then
         echo "✅ Serveur prêt sur http://localhost:${PORT}"
         exit 0
     fi
     sleep 2
-    echo "  Tentative $i/30..."
+    echo "  Tentative $i/60..."
 done
 
-echo "❌ Le serveur n'a pas démarré dans les 60 secondes"
+echo "❌ Le serveur n'a pas démarré dans les 120 secondes"
 exit 1

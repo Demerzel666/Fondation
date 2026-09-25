@@ -36,3 +36,5 @@ logs/
 chroma_db/
 *.bak
 .env
+models/embeddings/
+models/checksums.txt
