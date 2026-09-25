@@ -4,9 +4,11 @@
 # Collections multiples : politique + code
 # =============================================================================
 
+import re
 import chromadb
 from sentence_transformers import SentenceTransformer
 import numpy as np
+import re
 
 # ═══════ SOURDISSEMENT LOGS EMBEDDINGS ═══════
 import os
@@ -92,9 +94,9 @@ def detect_domain(query, mode="auto"):
                           "ocalan", "colonialisme", "exploitation", "bolchevik"]
     
     input_lower = query.lower()
-    code_hits = sum(1 for kw in keywords_code if kw in input_lower)
-    pol_hits = sum(1 for kw in keywords_politique if kw in input_lower)
-    
+    code_hits = sum(1 for kw in keywords_code if re.search(r'\b' + re.escape(kw) + r'\b', input_lower))
+    pol_hits = sum(1 for kw in keywords_politique if re.search(r'\b' + re.escape(kw) + r'\b', input_lower))
+
     if code_hits > pol_hits:
         return "code"
     return "politique"
@@ -134,7 +136,8 @@ def search_context(query, top_k=5, domain="auto", mode="auto", threshold=0.5):
     fetch_k = min(top_k * 4, 20)
     results = collection.query(
         query_embeddings=[query_emb],
-        n_results=fetch_k
+        n_results=fetch_k,
+        include=['documents','metadatas','distances']
     )
 
     contexts = []

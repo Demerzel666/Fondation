@@ -16,16 +16,13 @@ print("   ✅ Modèle chargé (384 dims)")
 # 2. ChromaDB
 print("[2] Initialisation Chroma...")
 client = chromadb.PersistentClient(path="rag/chroma_db")
-try:
-    client.delete_collection('fondation_knowledge')
-except:
-    pass
-collection = client.create_collection('fondation_knowledge')
+collection = client.get_or_create_collection('fondation_knowledge')
 print("   ✅ Collection prête")
 
 # 3. Charger le texte
 print("[3] Chargement corpus...")
-filepath = 'data/raw_texts/abdullah-ocalan-democratic-confederalism.txt'
+import sys
+filepath = sys.argv[1] if len(sys.argv) > 1 else 'data/raw_texts/abdullah-ocalan-democratic-confederalism.txt'
 with open(filepath, 'r', encoding='utf-8') as f:
     text = f.read()
 
@@ -47,11 +44,12 @@ texts_prefixed = [f"passage: {t}" for t in chunks]
 embeddings = model.encode(texts_prefixed).tolist()
 
 # 6. Injection
-ids = [f"ocalan_{i}" for i in range(len(chunks))]
+src_name = os.path.splitext(os.path.basename(filepath))[0]
+ids = [f"{src_name}_{i}" for i in range(len(chunks))]
 collection.add(
     documents=chunks,
     embeddings=embeddings,
-    metadatas=[{"source": "ocalan"} for _ in chunks],
+    metadatas=[{"source": src_name} for _ in chunks],
     ids=ids
 )
 print(f"   ✅ {len(chunks)} chunks ingérés")
