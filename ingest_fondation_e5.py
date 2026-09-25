@@ -68,3 +68,15 @@ for i, (doc, dist) in enumerate(zip(results['documents'][0], results['distances'
     print()
 
 print("✅ Ingestion terminée !")
+
+# Ajoute ce bloc à la fin du script existant :
+
+if __name__ == '__main__':
+    import sys
+    # Par défaut : ingère Öcalan
+    filepath = sys.argv[1] if len(sys.argv) > 1 else 'data/raw_texts/abdullah-ocalan-democratic-confederalism.txt'
+
+    print(f"=== INGESTION : {filepath} ===")
+
+    # ... le reste du code existe déjà, tu copies juste le processus d'ingestion
+    # dans une fonction, et tu appelles cette fonction avec filepath
