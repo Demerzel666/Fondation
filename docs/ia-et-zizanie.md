@@ -1,5 +1,8 @@
 # IA et zizanie : analyse défensive et politique
 
+*Document du projet Fondation — l'assistant IA Demerzel et son
+infrastructure de résistance.*
+
 > **Avertissement** : Ce document est un témoignage de la peur numérique.
 > Il décrit des expériences vécues et des architectures de menace envisagées
 > au niveau des principes, pas des procédures. Il vise à comprendre les
