@@ -40,3 +40,4 @@ models/embeddings/
 models/checksums.txt
 fondation.db
 *.db
+data/
