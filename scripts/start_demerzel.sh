@@ -59,7 +59,9 @@ llama-server \
     $GPU_ARGS \
     -t $THREADS \
     -c ${CTX} \
-    -np 1 &
+    -b 2048 \
+    -ub 512 &
+    -ub 512 &
 
 SERVER_PID=$!
 echo "PID serveur : $SERVER_PID"

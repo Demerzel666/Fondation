@@ -115,7 +115,7 @@ def send_to_model(payload, mode):
             "messages": payload_messages,
             "temperature": 0.7,
             "max_tokens": 16384
-        }, timeout=600)
+        }, timeout=1200)
 
         if response.status_code != 200:
             return f"[ERROR] Serveur retourné {response.status_code}: {response.text[:200]}"
@@ -255,7 +255,7 @@ def process_message(user_input, conversation_id, mode_state, callbacks=None):
 
     # 6. Route interception (Demerzel → Coder)
     route_intercepted = False
-    if '[ROUTE:' in ai_content:
+    if False and '[ROUTE:' in ai_content:  # TODO v2: routage manuel via GUI    
         from src.tools import tool_grep, tool_sed, tool_read
 
         route_match = re.search(r'\[ROUTE:(\w+)(?::(.+?))?(?:\|file:(.+?))?\]', ai_content)
