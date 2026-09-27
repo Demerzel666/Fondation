@@ -30,7 +30,7 @@ a# Setup notes — Fondation (27 sept. 2026)
 | SSH clés-only | ✅ |
 | Root interdit | ✅ |
 | IPv6 coupée | ✅ |
-| nftables | ⏳ à poser |
+| nftables | ✅ |
 | /boot chiffré (clé USB) | ⏳ |
 
 ## Roadmap
