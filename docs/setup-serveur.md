@@ -35,9 +35,8 @@ a# Setup notes — Fondation (27 sept. 2026)
 
 ## Roadmap
 
-1. **nftables** (deny all in, sauf SSH LAN)
-2. **llama.cpp + Vulkan** sur la 7900 XTX
-3. **RAID1 nvme1n1** (mdadm)
-4. **/boot sur clé USB duplicable**
-5. **Service d'IA partagé** (onion dédié + jetons d'invitation)
-6. **Flint 2** : VLANs, box en bridge, migration du réseau
+1. **llama.cpp + Vulkan** sur la 7900 XTX
+2. **RAID1 nvme1n1** (mdadm)
+3. **/boot sur clé USB duplicable**
+4. **Service d'IA partagé** (onion dédié + jetons d'invitation)
+5. **Flint 2** : VLANs, box en bridge, migration du réseau
