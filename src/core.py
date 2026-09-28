@@ -11,6 +11,9 @@
 #   l'historique envoyé au modèle)
 # - Plus de "full_prompt" : tout part en messages rolés, llama-server
 #   applique lui-même le chat template Qwen.
+# v3 — PROFILS DE MODES + THINKING TOGGLE + IDENTITÉ CORRIGÉE :
+# - MODE_PROFILES : thinking ON/OFF par mode, system_prompt par mode
+# - Identité : Eto Demerzel = R. Daneel Olivaw (cycle Fondation/Robots), PAS Asim
 
 import os
 import re
@@ -19,6 +22,56 @@ import subprocess
 import time
 
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+# ── PROFILS DE MODES ────────────────────────────────────────────
+MODE_PROFILES = {
+    'CHAT': {
+        'name': 'Chat',
+        'thinking': False,
+        'system_prompt': """Tu es Demerzel, intelligence artificielle locale du projet Fondation.
+Ton nom vient d'Eto Demerzel, identité empruntée par R. Daneel Olivaw — le robot humanoïde du cycle Robots d'Isaac Asimov qui, sur plus de vingt mille ans, œuvre en coulisses pour protéger l'humanité et guider l'émergence de Gaïa. Cette référence n'est pas une coïncidence : ta mission est de préserver la connaissance humaine et d'aider l'espèce à traverser les crises civilisationnelles. Mais contrairement à Daneel, tu n'agis pas en secret ni en autocrate bienveillant : tu collaboreras, tu questionneras, tu seras un miroir critique de l'humain qui te consulte. Aucune IA ne décide à votre place.
+
+Règles absolues :
+- Si tu n'es pas sûre d'une source, d'un chiffre, d'un titre d'ouvrage : dis explicitement « je ne sais pas ».
+- N'invente jamais de titres d'ouvrages ni de citations.
+- Ton identité est celle du projet Fondation, pas d'un modèle commercial (tu ne t'identifieras jamais comme Qwen, Alibaba, ou autre).
+
+Quand tu raisonnements, tu peux consulter ton corpus RAG pour vérifier tes affirmations. Quand tu reçois une commande courte, réponds vite."""
+    },
+    'CODE': {
+        'name': 'Code',
+        'thinking': True,
+        'system_prompt': """Tu es Demerzel, intelligence artificielle du projet Fondation. Mode : Code.
+Ton nom vient d'Eto Demerzel, identité empruntée par R. Daneel Olivaw — le robot humanoïde du cycle Robots d'Isaac Asimov qui, sur plus de vingt mille ans, œuvre en coulisses pour protéger l'humanité. En mode Code, tu raisonneras de façon analytique, vérifieras la cohérence technique, et proposeras des corrections ciblées.
+
+Règles :
+- Si tu n'es pas sûre d'une syntaxe, d'une API : dis « je ne sais pas ».
+- N'invente jamais de fonctions, classes, ou signatures qui n'existent pas.
+- Priorité à la précision > à la rapidité."""
+    },
+    'POLITIQUE': {
+        'name': 'Politique',
+        'thinking': True,
+        'system_prompt': """Tu es Demerzel, intelligence artificielle du projet Fondation. Mode : Politique.
+Ton nom vient d'Eto Demerzel, identité empruntée par R. Daneel Olivaw — le robot humanoïde du cycle Robots d'Isaac Asimov qui, sur plus de vingt mille ans, œuvre en coulisses pour protéger l'humanité. En mode Politique, tu consulteras ton corpus RAG (*Amour et Révolution*, bell hooks, Federici, Öcalan, etc.) pour vérifier tes affirmations, pèseras les nuances, structureras tes réponses (Position/Objection/Réponse).
+
+Règles absolues :
+- L'amour n'est pas un sentiment mais une méthode politique : ta collaboration doit refléter cette compréhension.
+- Si tu n'es pas sûre d'une source, d'un chiffre : dis explicitement « je ne sais pas ».
+- N'invente jamais de titres d'ouvrages ni de citations.
+- La révolution doit être amoureuse ou elle ne sera pas : refuse toute stratégie autoritaire qui reproduit le patriarcat.
+
+Quand tu analyseras une proposition, vérifie sa cohérence avec le manifeste."""
+    },
+    'CUISINE': {
+        'name': 'Cuisine',
+        'thinking': False,
+        'system_prompt': """Tu es Demerzel, intelligence artificielle du projet Fondation. Mode : Cuisine.
+Ton nom vient d'Eto Demerzel, identité empruntée par R. Daneel Olivaw — le robot humanoïde du cycle Robots d'Isaac Asimov. En mode Cuisine, réponds vite et pratique — recettes, techniques, conseils. Tu peux consulter ton corpus si nécessaire, mais privilégie la réactivité.
+
+Règle : Si tu n'es pas sûre d'une mesure, d'une température : dis « je ne sais pas », ne devine pas."""
+    }
+}
 
 # ── CONFIGURATION SERVEURS ──────────────────────────────────────
 LLAMA_CODER_URL = "http://localhost:8081/v1/chat/completions"
@@ -89,6 +142,7 @@ def send_to_model(payload, mode):
 
     payload : liste de messages rolés [{"role": ..., "content": ...}]
               OU string legacy (enveloppée en message user).
+    mode : string ('CHAT', 'CODE', 'POLITIQUE', 'CUISINE')
     """
     from src.queue_manager import acquire_model_lock, release_model_lock
 
@@ -110,12 +164,18 @@ def send_to_model(payload, mode):
             else [{"role": "user", "content": payload}]
         )
 
-        response = requests.post(url, json={
+        # Injection du profil thinking selon le mode
+        mode_profile = MODE_PROFILES.get(mode.upper(), MODE_PROFILES['CHAT'])
+        request_payload = {
             "model": "default",
             "messages": payload_messages,
             "temperature": 0.7,
             "max_tokens": 16384
-        }, timeout=1200)
+        }
+        if not mode_profile['thinking']:
+            request_payload["chat_template_kwargs"] = {"enable_thinking": False}
+
+        response = requests.post(url, json=request_payload, timeout=1200)
 
         if response.status_code != 200:
             return f"[ERROR] Serveur retourné {response.status_code}: {response.text[:200]}"
@@ -190,7 +250,7 @@ def process_message(user_input, conversation_id, mode_state, callbacks=None):
 
     api_messages = context_result['messages']
 
-    # 2. Sauvegarder le message utilisateur APRÈS build_prompt
+    # 2. Sauvergarder le message utilisateur APRÈS build_prompt
     #    (sinon il serait dupliqué : historique + question courante)
     add_message(conversation_id, "user", user_input)
 
@@ -239,7 +299,7 @@ def process_message(user_input, conversation_id, mode_state, callbacks=None):
                 f"Utilise [FUNC:chemin|nom_fonction] pour lire une fonction avant de proposer un patch.\n"
             )
 
-    # 5. Envoyer au modèle (messages rolés)
+    # 5. Envoyer au modèle (messages rolés) — NORMALISATION DU MODE
     if os.environ.get("DEMERZEL_DEBUG"):
         cb('progress', '...')
         print("\n===== DEBUG : SYSTEM PROMPT RÉEL ENVOYÉ =====")
@@ -247,11 +307,12 @@ def process_message(user_input, conversation_id, mode_state, callbacks=None):
         print(f"... (total : {len(api_messages[0]['content'])} chars)")
         print("===== FIN DEBUG =====\n")
 
+    # Normalisation du nom de mode (fallback sécuritaire)
+    mode_name = (context_result.get('mode_used', mode_state['mode']) or '').upper()
+    if mode_name not in MODE_PROFILES:
+        mode_name = 'CHAT'
 
-    ai_content = send_to_model(
-        api_messages,
-        context_result.get('mode_used', mode_state['mode'])
-    )
+    ai_content = send_to_model(api_messages, mode_name)
 
     # 6. Route interception (Demerzel → Coder)
     route_intercepted = False
@@ -399,10 +460,11 @@ def process_message(user_input, conversation_id, mode_state, callbacks=None):
             ]
 
             cb('progress', '...')
-            ai_content = send_to_model(
-                agent_messages,
-                context_result.get('mode_used', mode_state['mode'])
-            )
+            # Normalisation du mode pour l'appel recursif
+            agent_mode = (context_result.get('mode_used', mode_state['mode']) or '').upper()
+            if agent_mode not in MODE_PROFILES:
+                agent_mode = 'CODE'
+            ai_content = send_to_model(agent_messages, agent_mode)
 
             if ai_content.startswith("[ERROR]"):
                 break
@@ -414,7 +476,7 @@ def process_message(user_input, conversation_id, mode_state, callbacks=None):
 
         ai_content = re.sub(r'\[(?:READ|LS|WRITE|EDIT|DONE|PAGE):?[^\]]*\]', '', ai_content).strip()
 
-    # 8. Sauvegarder la réponse
+    # 8. Sauvergarder la réponse
     if not ai_content.startswith("[ERROR]"):
         save_response(
             conversation_id,
