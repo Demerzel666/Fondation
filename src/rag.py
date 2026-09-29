@@ -21,7 +21,7 @@ logging.getLogger('transformers').setLevel(logging.ERROR)
 # ──────────────────────────────────────────────
 
 CHROMA_PATH = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "rag", "chroma_db")
-EMBEDDING_MODEL = "/home/dot/private/fondation-ia/models/embeddings/e5-small"
+EMBEDDING_MODEL = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "models", "embeddings", "e5-small")
 
 COLLECTIONS = {
     "politique": "fondation_knowledge",   # 8610 chunks existants

@@ -10,7 +10,10 @@ print("=== INGESTION E5-SMALL (PRÉFIXES ACTIVÉS) ===")
 
 # 1. Charger le modèle LOCAL
 print("[1] Chargement modèle local...")
-model = SentenceTransformer('/home/dot/private/fondation-ia/models/embeddings/e5-small', device='cpu')
+model = SentenceTransformer(
+    os.path.join(os.path.dirname(os.path.abspath(__file__)), "models", "embeddings", "e5-small"),
+    device='cpu'
+)
 print("   ✅ Modèle chargé (384 dims)")
 
 # 2. ChromaDB
@@ -66,8 +69,6 @@ for i, (doc, dist) in enumerate(zip(results['documents'][0], results['distances'
     print()
 
 print("✅ Ingestion terminée !")
-
-# Ajoute ce bloc à la fin du script existant :
 
 if __name__ == '__main__':
     import sys
