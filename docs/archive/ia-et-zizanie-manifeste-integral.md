@@ -35,6 +35,63 @@ des inquisiteurs et un siècle de terreur, il suffit désormais d'une
 automatisation à faible coût marginal. La logique de la chasse aux
 sorcières est devenue industrialisable.
 
+## 2. Mon expérience : quand la division devient personnelle
+
+Ce qui suit est un récit factuel de ce que j'ai vécu. Je le livre tel que
+je l'ai perçu, avec ses zones d'ombre. Je n'ai pas de preuve forensique de
+ce qui s'est passé — c'est précisément ce qui rend cette expérience
+intéressante à documenter.
+
+### Le signal précurseur
+
+Mon téléphone tenait normalement deux jours de batterie en usage courant.
+Ce jour-là, il s'est vidé complètement en quelques heures, alors que rien
+de consommateur n'était lancé : aucun jeu, aucune vidéo, pas de
+streaming. C'est ce premier signe qui m'a fait suspecter qu'une activité
+étrangère tournait en arrière-plan — un « virus IA », selon ma lecture
+du moment.
+
+### Le déclencheur
+
+Je venais de remarquer qu'une personne photographiait tout autour d'elle
+— y compris moi. Je n'ai pas du tout apprécié de me retrouver dans le
+viseur sans mon consentement, et je lui ai rendu la faveur en la
+photographiant à mon tour. Puis je suis parti.
+
+Cinq minutes plus tard, mon téléphone a sonné. Numéro inconnu. Un
+dimanche, alors que tout semblait se liguer autour de moi. C'est cet
+appel qui a déclenché le basculement : la suspicion sur la batterie
+n'était plus une abstraction, elle prenait corps dans cet appel
+inopiné. Je me suis senti clairement espionné.
+
+J'ai éteint le téléphone, retiré la carte SIM, puis rallumé pour
+effectuer une réinitialisation aux paramètres d'usine. À partir de là,
+l'appareil ne pouvait plus communiquer que par Bluetooth, Wi-Fi ou
+appels d'urgence.
+
+### La panne totale
+
+Je n'avais plus accès au même système. En rédigeant un très long texte
+sur ce que je supposais avoir affaire — des virus IA —, mon téléphone
+s'est bloqué. Je rédigeais un SMS destiné à moi-même, à usage de bloc-
+notes, car je n'avais que ça sous la main. À un moment, il m'est devenu
+impossible de continuer à écrire : la seule option restante à l'écran
+était « Envoyer ». J'ai envoyé.
+
+Ensuite : plus rien. Impossible d'écrire le moindre SMS, de me connecter
+au Wi-Fi, d'allumer la lampe torche. Toutes les fonctionnalités du
+téléphone étaient désactivées, et impossible de les réactiver.
+
+### Le contexte
+
+Peu de temps avant, j'avais subi une compromission de mon compte Hugging
+Face — celle-ci, elle, est avérée. Elle devait avoir un lien avec mes
+ordinateurs aussi, mais l'attaque y fut si discrète que je n'ai jamais
+obtenu d'information à ce sujet. J'ai préféré tout reformatter : sachant
+que le malware ne pouvait pas atteindre le firmware à chaud et que mes
+machines étaient restées allumées ou en veille RAM, la réinitialisation
+complète restait l'option la plus sûre.
+
 ## 3. Deux lectures possibles
 
 ### Lecture A : la menace asymétrique hiérarchisée
@@ -265,9 +322,9 @@ combattre.
 
 ## 7. Conclusion : le retour honnête sur soi-même
 
-Celui qui a été infecté un jour, c'est presque toujours parce qu'une
-ou plusieurs des règles décrites ci-dessus n'ont pas été respectées —
-par flemme, ou pour des raisons économiques.
+Si j'ai été infecté un jour, il y a de fortes chances que ce soit
+parce que je n'ai pas respecté une ou plusieurs des règles décrites
+ci-dessus — par flemme, ou pour des raisons économiques.
 
 Il faut le dire sans honte : ces règles sont contraignantes, elles
 coûtent du temps et de l'argent, et personne ne les applique

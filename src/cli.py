@@ -231,7 +231,7 @@ def show_project_menu(mode_state):
     print(f"\nPROJET ACTUEL : {mode_state['project']['name']} (ID #{mode_state['project']['id']})")
     print(f"Mode actuel : {mode_state['mode'].upper()}")
     print("-" * 40)
-    print("[1] Changer de mode (code/politique)")
+    print("[1] Changer de mode (code/politique/chat)")
     print("[2] Lister les conversations")
     print("[3] Nouvelle conversation")
     print("[4] Reprendre une conversation existante")
@@ -473,8 +473,8 @@ def run_chat_loop(mode_state):
 
                 elif cmd == '/mode':
                     parts = user_input.split(maxsplit=1)
-                    if len(parts) < 2 or parts[1] not in ['code', 'politique']:
-                        print("Usage: /mode code  |  /mode politique  |  /mode auto")
+                    if len(parts) < 2 or parts[1] not in ['code', 'politique', 'chat']:
+                        print("Usage: /mode code  |  /mode politique  |  /mode chat")
                         print(f"Mode actuel : {mode_state['mode'].upper()}")
                         continue
                     
@@ -1094,65 +1094,78 @@ def run_chat_loop(mode_state):
 
 
                 elif cmd == '/sources':
-                    msgs = get_messages(mode_state['conversation_id'], limit=5)
-                    found = False
-                    for m in msgs:
-                        raw = m.get('rag_sources')
-                        if raw:
-                            if isinstance(raw, str):
-                                try:
-                                    parsed = json.loads(raw)
-                                    # Double encodage : si c'est encore une string, on parse encore
-                                    if isinstance(parsed, str):
-                                        parsed = json.loads(parsed)
-                                    sources = parsed
-                                except json.JSONDecodeError:
+                    sources = mode_state.get('last_rag_sources')
+                    if sources:
+                        print(f"\n{'═'*60}")
+                        print(f"  CHUNKS RAG DE LA DERNIÈRE RÉPONSE ({len(sources)})")
+                        print(f"{'═'*60}")
+                        for i, s in enumerate(sources, 1):
+                            src = s.get('source', 'inconnu')
+                            score = s.get('score', '?')
+                            text = (s.get('text') or '').replace('\n', ' ')
+                            print(f"\n  [{i}] {src} — score: {score}")
+                            print(f"      {text[:280]}")
+                        print(f"\n{'═'*60}\n")
+                    else:
+                        # Fallback : chercher dans l'historique récent (ancien comportement)
+                        msgs = get_messages(mode_state['conversation_id'], limit=5)
+                        found = False
+                        for m in msgs:
+                            raw = m.get('rag_sources')
+                            if raw:
+                                if isinstance(raw, str):
+                                    try:
+                                        parsed = json.loads(raw)
+                                        if isinstance(parsed, str):
+                                            parsed = json.loads(parsed)
+                                        sources = parsed
+                                    except json.JSONDecodeError:
+                                        continue
+                                elif isinstance(raw, list):
+                                    sources = raw
+                                elif isinstance(raw, dict):
+                                    sources = [raw]
+                                else:
                                     continue
-                            elif isinstance(raw, list):
-                                sources = raw
-                            elif isinstance(raw, dict):
-                                sources = [raw]
-                            else:
-                                continue
-                            if sources and isinstance(sources, list):
-                                print(f"  Message #{m['id']} :")
-                                for s in sources:
-                                    if isinstance(s, dict):
-                                        print(f"    - {s.get('source', 'inconnu')}")
-                                    else:
-                                        print(f"    - {s}")
-                                found = True
-                    if not found:
-                        print("(Aucune source RAG récente)")
-                    continue
+                                if sources and isinstance(sources, list):
+                                    print(f"  Message #{m['id']} :")
+                                    for s in sources:
+                                        if isinstance(s, dict):
+                                            print(f"    - {s.get('source', 'inconnu')}")
+                                        else:
+                                            print(f"    - {s}")
+                                    found = True
+                        if not found:
+                            print("  Aucune source RAG récente.")
+
 
                 elif cmd == '/help':
                     print(f"\nMode actuel : {mode_state['mode'].upper()}")
                     if mode_state.get('active_file'):
                         print(f"Fichier actif : {os.path.basename(mode_state['active_file'])}")
                     print("Commandes disponibles :")
-                    print("  /mode [code|politique]       Changer de mode")
-                    print("  /open <fichier>              Ouvrir un fichier en édition IA")
-                    print("  /close                       Fermer le fichier actif")
-                    print("  /apply [num]                 Appliquer une modification proposée")
-                    print("  /multi                       Mode multi-lignes (terminer avec END)")
-                    print("  /load <fichier|dossier>     Charger un fichier ou dossier projet")
-                    print("  /files                       Lister les fichiers chargés")
-                    print("  /unload                      Décharger tous les fichiers")
-                    print("  /write [num] [chemin]       Extraire et sauvegarder un bloc de code")
-                    print("  /fix <fichier> <commande>   Auto-correction compilation (boucle agentique)")
-                    print("  /edit <fichier>             Éditer dans NeoVim + diff + audit + commit")
-                    print("  /cat <fichier>             Afficher un fichier avec coloration")
-                    print("  /audit <chemin>            Auditer sécurité dépendances")
-                    print("  /history                     Historique récent")
-                    print("  /sources                     Sources RAG utilisées")
-                    print("  /menu                        Retour au menu projet")
-                    print("  /quit                        Quitter Fondation")
-                    print("  /clear                       Effacer l'écran")
-                    print("  /workspace [chemin]          Définir/afficher le workspace du projet")
-                    print("  /workspace add <fichier>     Ajouter un fichier actif au workspace")
-                    print("  /workspace remove <fichier>  Retirer un fichier actif du workspace")
-                    print("  /user                      - Gestion des utilisateurs (create/list/deactivate)")
+                    print("  /mode [code|politique, chat]   Changer de mode")
+                    print("  /open <fichier>                Ouvrir un fichier en édition IA")
+                    print("  /close                         Fermer le fichier actif")
+                    print("  /apply [num]                   Appliquer une modification proposée")
+                    print("  /multi                         Mode multi-lignes (terminer avec END)")
+                    print("  /load <fichier|dossier>        Charger un fichier ou dossier projet")
+                    print("  /files                         Lister les fichiers chargés")
+                    print("  /unload                        Décharger tous les fichiers")
+                    print("  /write [num] [chemin]          Extraire et sauvegarder un bloc de code")
+                    print("  /fix <fichier> <commande>      Auto-correction compilation (boucle agentique)")
+                    print("  /edit <fichier>                Éditer dans NeoVim + diff + audit + commit")
+                    print("  /cat <fichier>                 Afficher un fichier avec coloration")
+                    print("  /audit <chemin>                Auditer sécurité dépendances")
+                    print("  /history                       Historique récent")
+                    print("  /sources                       Sources RAG utilisées")
+                    print("  /menu                          Retour au menu projet")
+                    print("  /quit                          Quitter Fondation")
+                    print("  /clear                         Effacer l'écran")
+                    print("  /workspace [chemin]            Définir/afficher le workspace du projet")
+                    print("  /workspace add <fichier>       Ajouter un fichier actif au workspace")
+                    print("  /workspace remove <fichier>    Retirer un fichier actif du workspace")
+                    print("  /user                          - Gestion des utilisateurs (create/list/deactivate)")
                     print()
                     continue
 
@@ -1566,6 +1579,7 @@ def run_chat_loop(mode_state):
                     'route': lambda info: print(f"\n🔀 [ROUTE] Demerzel → Coder : {info['type']} {info.get('target','')} {info.get('file','')}"),
                 }
             )
+            mode_state['last_rag_sources'] = rag_sources
 
             print(f"\n{'─'*60}")
             print_response(ai_content)
@@ -1599,7 +1613,7 @@ def main():
         'project_id': None,
         'project': None,
         'conversation_id': None,
-        'mode': 'politique',
+        'mode': 'chat',
         'loaded_files': {},
         'active_file': None,
         'workspace_path': None,
@@ -1656,9 +1670,9 @@ def main():
                         sub_choice = input("> ").strip()
 
                         if sub_choice == '1':
-                            print("[1] code  [2] politique")
+                            print("[1] code  [2] politique [3] chat")
                             mode_choice = input("Mode > ").strip()
-                            modes = {'1': 'code', '2': 'politique'}
+                            modes = {'1': 'code', '2': 'politique', '3': 'chat'}
                             if mode_choice in modes:
                                 mode_state['mode'] = modes[mode_choice]
                                 print(f"✅ Mode : {mode_state['mode'].upper()}")

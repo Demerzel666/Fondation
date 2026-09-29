@@ -6,6 +6,13 @@ from sentence_transformers import SentenceTransformer
 import chromadb
 import re
 
+# Licences par source — défaut : copyrighted (restera local)
+LICENCES = {
+    "Kropotkine_-_La_Conquete_du_Pain": "public-domain",
+    "Luxemburg_-_Reforme_ou_Revolution": "public-domain",
+    "ia-et-zizanie": "cc-by-sa",
+}
+
 print("=== INGESTION E5-SMALL (PRÉFIXES ACTIVÉS) ===")
 
 # 1. Charger le modèle LOCAL
@@ -25,7 +32,10 @@ print("   ✅ Collection prête")
 # 3. Charger le texte
 print("[3] Chargement corpus...")
 import sys
-filepath = sys.argv[1] if len(sys.argv) > 1 else 'data/raw_texts/abdullah-ocalan-democratic-confederalism.txt'
+filepath = sys.argv[1] if len(sys.argv) > 1 else None
+if not filepath:
+    print("Usage: python ingest_fondation_e5.py <fichier.txt>")
+    sys.exit(1)
 with open(filepath, 'r', encoding='utf-8') as f:
     text = f.read()
 
@@ -48,11 +58,12 @@ embeddings = model.encode(texts_prefixed).tolist()
 
 # 6. Injection
 src_name = os.path.splitext(os.path.basename(filepath))[0]
+lic = LICENCES.get(src_name, "copyrighted")
 ids = [f"{src_name}_{i}" for i in range(len(chunks))]
-collection.add(
+collection.upsert(
     documents=chunks,
     embeddings=embeddings,
-    metadatas=[{"source": src_name} for _ in chunks],
+    metadatas=[{"source": src_name, "license": lic} for _ in chunks],
     ids=ids
 )
 print(f"   ✅ {len(chunks)} chunks ingérés")

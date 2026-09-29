@@ -165,8 +165,27 @@ def search_context(query, top_k=5, domain="auto", mode="auto", threshold=0.5):
     filtered = [c for c in contexts if c["score"] > threshold]
     filtered.sort(key=lambda x: x["score"], reverse=True)
 
-    return filtered[:top_k]
+    # Diversification : max 2 chunks par source dans le top-k
+    per_source = {}
+    diversified = []
+    for c in filtered:
+        n = per_source.get(c["source"], 0)
+        if n < 2:
+            diversified.append(c)
+            per_source[c["source"]] = n + 1
+        if len(diversified) >= top_k:
+            break
 
+    # Pas assez après diversification ? Compléter avec les meilleurs restants
+    if len(diversified) < top_k:
+        already = {c["id"] for c in diversified}
+        for c in filtered:
+            if c["id"] not in already:
+                diversified.append(c)
+                if len(diversified) >= top_k:
+                    break
+
+    return diversified[:top_k]
 
 def format_context(contexts):
     """Formate les résultats RAG en texte injectable dans le prompt."""

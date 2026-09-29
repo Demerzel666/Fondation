@@ -42,3 +42,7 @@ fondation.db
 *.db
 data/
 data/
+
+# IA locale — jamais sur le repo public
+rag/
+

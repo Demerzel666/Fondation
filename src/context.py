@@ -28,18 +28,19 @@ MAX_CHARS_PER_FILE = 8000
 
 def _load_system_prompt(mode):
     """Charge le system prompt depuis les fichiers prompts/."""
-    if mode == "code":
-        prompt_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "prompts", "code.txt")
-    else:
-        prompt_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "prompts", "politique.txt")
-
+    project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    prompt_files = {
+        "code": "code.txt",
+        "politique": "politique.txt",
+        "chat": "chat.txt",
+    }
+    prompt_path = os.path.join(project_root, "prompts", prompt_files.get(mode, "politique.txt"))
     try:
         with open(prompt_path, 'r', encoding='utf-8') as f:
             return f.read().strip()
     except FileNotFoundError:
         print(f"[WARNING] System prompt introuvable: {prompt_path}")
-        return f"Vous êtes un assistant Fondation-IA en mode {mode}. Utilisez vos capacités standards."
-
+        return f"Tu es Demerzel, IA locale du projet Fondation, en mode {mode}. Réponds avec honnêteté : si tu ne sais pas, dis-le."
 
 def build_prompt(conversation_id, user_input, mode="auto", loaded_files=None):
     """Construit la liste de messages prête à envoyer au modèle.
@@ -105,8 +106,13 @@ def build_prompt(conversation_id, user_input, mode="auto", loaded_files=None):
             f"\n\n[SOURCES PERTINENTES — matériaux à intégrer, pas un plan à suivre]\n"
             f"{format_context(contexts)}\n"
         )
-        rag_sources = [{"id": c["id"], "source": c["source"], "domain": c.get("domain", "")} for c in contexts]
-
+        rag_sources = [{
+            "id": c["id"],
+            "source": c["source"],
+            "domain": c.get("domain", ""),
+            "score": round(c.get("score", 0), 3),
+            "text": c["text"][:300]
+        } for c in contexts]
     # 4. Liste de messages rolée — LA voie principale
     api_messages = [{"role": "system", "content": system_prompt}]
 
