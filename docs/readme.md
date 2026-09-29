@@ -66,7 +66,7 @@ Ce projet accueille :
 - ✅ Personnes en guérison (violence, trauma, identité de genre)
 - ✅ Militant·e·s antifa, anticapitaliste, féministe
 - ✅ Hackers éthiques, développeurs·ses
-- ✅ Traducteurs·trices (espagnol, arabe, kurde, anglais prioritaire)
+- ✅ Traducteurs·trices (espagnol, arabe, kurde, anglais, allemand prioritaire)
 - ✅ Toute personne avec **bienveillance et humilité**
 
 **Pas de violence, pas de haine, pas de coercion.**
