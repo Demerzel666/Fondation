@@ -21,7 +21,7 @@ logging.getLogger('transformers').setLevel(logging.ERROR)
 # ──────────────────────────────────────────────
 
 CHROMA_PATH = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "rag", "chroma_db")
-EMBEDDING_MODEL = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "models", "embeddings", "e5-small")
+EMBEDDING_MODEL = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "models", "embeddings", "multilingual-e5-small")
 
 COLLECTIONS = {
     "politique": "fondation_knowledge",   # 8610 chunks existants
@@ -101,71 +101,94 @@ def detect_domain(query, mode="auto"):
         return "code"
     return "politique"
 
+def reformulate_query(question):
+    '''Reformule en requêtes RAG neutres (FR + EN), sans le biais du mot-ancre.
+    Fallback garanti : [question] en cas d'échec — jamais bloquer la recherche.'''
+    try:
+        from src.core import send_to_model
+        messages = [
+            {"role": "system", "content": (
+                "Tu es un module de reformulation pour moteur de recherche. "
+                "Réponds UNIQUEMENT avec deux lignes, sans commentaire :\n"
+                "Ligne 1 : la requête française (mots-clés neutres, pas une question)\n"
+                "Ligne 2 : la traduction anglaise des mêmes concepts.\n"
+                "CONSERVE TOUJOURS les noms propres d'auteurs et d'oeuvres cités "
+                "(Federici, Bookchin, hooks...).\n"
+                "Exemple pour 'que dit Federici sur le travail domestique ?' :\n"
+                "Federici travail domestique reproduction sociale salariat\n"
+                "Federici domestic work social reproduction wages housework"
+            )},
+            {"role": "user", "content": question}
+        ]
+        resp = send_to_model(messages, 'chat')
+        if not resp or resp.startswith("[ERROR]"):
+            return [question]
+        lignes = [l.strip() for l in resp.strip().split('\n') if l.strip()]
+        return lignes[:2] if lignes else [question]
+    except Exception:
+        return [question]
 
-def search_context(query, top_k=5, domain="auto", mode="auto", threshold=0.5):
-    """Recherche avec embeddings et filtrage intelligent.
-    
-    Args:
-        query: question de l'utilisateur
-        top_k: nombre de résultats à retourner
-        domain: 'code', 'politique', ou 'auto' (détecte automatiquement)
-        mode: mode passé par le CLI ('code', 'politique', 'auto')
-        threshold: score minimum pour filtrer le bruit
-    
+def search_context(query, top_k=5, domain="auto", mode="auto", threshold=0.5, reformulate=True):
+    '''Recherche multi-requêtes (question + reformulation FR/EN en politique),
+    fusion dédoublonnée, seuil, diversification stricte (max 2 par source).
+
     Returns:
-        Liste de dicts avec: text, source, title, score
-    """
-    # Déterminer le domaine
+        Liste de dicts avec: id, text, source, title, score, domain'''
     if domain == "auto":
         domain = detect_domain(query, mode=mode)
-    
+
     collection = get_collection(domain)
     model = get_embedding_model()
 
-    # Générer embedding avec prefix 'query:' requis par e5
-    emb_raw = model.encode(["query: " + query])
+    # Requêtes : question brute + (FR reformulée + EN) en mode politique
+    queries = [query]
+    if domain == "politique" and reformulate:
+        queries += reformulate_query(query)
 
-    if isinstance(emb_raw, np.ndarray):
-        emb_list = emb_raw.tolist()
-    else:
-        emb_list = list(emb_raw)
-
-    query_emb = [float(x) for x in emb_list[0]]
-
-    # Récupérer plus de candidats qu'on en a besoin pour mieux filtrer
     fetch_k = min(top_k * 4, 20)
-    results = collection.query(
-        query_embeddings=[query_emb],
-        n_results=fetch_k,
-        include=['documents','metadatas','distances']
-    )
 
-    contexts = []
-    ids = results.get("ids", [[]])
-    if not ids or not ids[0]:
-        return []
+    # Fusion des candidats de toutes les requêtes, dédoublonnés par id
+    # (un chunk retrouvé en FR ET en EN garde son meilleur score)
+    merged = {}
+    for q in queries:
+        emb_raw = model.encode(["query: " + q])
+        if isinstance(emb_raw, np.ndarray):
+            emb_list = emb_raw.tolist()
+        else:
+            emb_list = list(emb_raw)
+        query_emb = [float(x) for x in emb_list[0]]
 
-    for i in range(len(ids[0])):
+        results = collection.query(
+            query_embeddings=[query_emb],
+            n_results=fetch_k,
+            include=['documents', 'metadatas', 'distances']
+        )
+        ids = results.get("ids", [[]])
+        if not ids or not ids[0]:
+            continue
         docs = results.get("documents", [[]])[0]
         metas = results.get("metadatas", [[]])[0]
         dists = results.get("distances", [[]])[0]
 
-        score = 1.0 - float(dists[i]) if i < len(dists) else 0.0
+        for i in range(len(ids[0])):
+            cid = ids[0][i]
+            score = 1.0 - float(dists[i]) if i < len(dists) else 0.0
+            if cid not in merged or score > merged[cid]["score"]:
+                merged[cid] = {
+                    "id": cid,
+                    "text": docs[i] if i < len(docs) else "",
+                    "source": (metas[i] or {}).get("source", "inconnu"),
+                    "title": (metas[i] or {}).get("title", ""),
+                    "score": score,
+                    "domain": domain,
+                }
 
-        contexts.append({
-            "id": ids[0][i],
-            "text": docs[i] if i < len(docs) else "",
-            "source": (metas[i] or {}).get("source", "inconnu"),
-            "title": (metas[i] or {}).get("title", ""),
-            "score": score,
-            "domain": domain,
-        })
-
-    # Filtrer par threshold et trier par score
-    filtered = [c for c in contexts if c["score"] > threshold]
+    # Seuil puis tri par score
+    filtered = [c for c in merged.values() if c["score"] > threshold]
     filtered.sort(key=lambda x: x["score"], reverse=True)
 
-    # Diversification : max 2 chunks par source dans le top-k
+    # Diversification STRICTE : max 2 chunks par source, pas de fill-back
+    # qui contourne le cap. Mieux vaut 4 chunks variés que 5 monolithiques.
     per_source = {}
     diversified = []
     for c in filtered:
@@ -176,17 +199,7 @@ def search_context(query, top_k=5, domain="auto", mode="auto", threshold=0.5):
         if len(diversified) >= top_k:
             break
 
-    # Pas assez après diversification ? Compléter avec les meilleurs restants
-    if len(diversified) < top_k:
-        already = {c["id"] for c in diversified}
-        for c in filtered:
-            if c["id"] not in already:
-                diversified.append(c)
-                if len(diversified) >= top_k:
-                    break
-
     return diversified[:top_k]
-
 def format_context(contexts):
     """Formate les résultats RAG en texte injectable dans le prompt."""
     if not contexts:

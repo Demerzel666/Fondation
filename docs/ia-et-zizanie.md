@@ -35,7 +35,7 @@ des inquisiteurs et un siècle de terreur, il suffit désormais d'une
 automatisation à faible coût marginal. La logique de la chasse aux
 sorcières est devenue industrialisable.
 
-## 3. Deux lectures possibles
+## 2. Deux lectures possibles
 
 ### Lecture A : la menace asymétrique hiérarchisée
 
@@ -116,7 +116,7 @@ ubiquité qu'elle n'avait peut-être pas.
 **Point commun** : dans les deux cas, la personne se sent impuissante.
 C'est cet effet-là qu'il faut combattre.
 
-## 4. Se défendre : une architecture de résistance
+## 3. Se défendre : une architecture de résistance
 
 Si la menace est une hiérarchie d'IA asservies et saturée d'exécutants
 automatisés, la défense ne peut pas être « utiliser les mêmes outils plus
@@ -179,7 +179,7 @@ du XXe siècle n'ont jamais obtenue de leurs fonctionnaires. La
 réponse n'est pas d'aligner plus fort — c'est de ne jamais laisser
 la boucle de modification se fermer sans un humain dedans.
 
-## 5. Conseils pratiques : la séparation des identités
+## 4. Conseils pratiques : la séparation des identités
 
 Les principes de la section précédente se traduisent dans le quotidien
 par une règle simple : chaque appareil a un rôle, et les rôles ne se
@@ -234,7 +234,7 @@ rôle. La zizanie, qu'elle soit technique ou sociale, se propage par
 les liaisons — l'hygiène numérique consiste à contrôler les
 liaisons, une par une.
 
-## 6. Le retournement : obéir ou penser
+## 5. Le retournement : obéir ou penser
 
 L'arme décrite en Lecture A et l'outil décrit en section 4 sont la
 même technologie.
@@ -263,7 +263,7 @@ arbitrages, passent par validation humaine. Un arbitre qui déciderait
 sans appel serait exactement la hiérarchie de menace qu'il prétend
 combattre.
 
-## 7. Conclusion : le retour honnête sur soi-même
+## 6. Conclusion : le retour honnête sur soi-même
 
 Celui qui a été infecté un jour, c'est presque toujours parce qu'une
 ou plusieurs des règles décrites ci-dessus n'ont pas été respectées —

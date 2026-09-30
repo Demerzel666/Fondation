@@ -1104,7 +1104,7 @@ def run_chat_loop(mode_state):
                             score = s.get('score', '?')
                             text = (s.get('text') or '').replace('\n', ' ')
                             print(f"\n  [{i}] {src} — score: {score}")
-                            print(f"      {text[:280]}")
+                            print(f"      {text[:400]}")
                         print(f"\n{'═'*60}\n")
                     else:
                         # Fallback : chercher dans l'historique récent (ancien comportement)
@@ -1137,6 +1137,7 @@ def run_chat_loop(mode_state):
                                     found = True
                         if not found:
                             print("  Aucune source RAG récente.")
+                    continue
 
 
                 elif cmd == '/help':

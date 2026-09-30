@@ -100,7 +100,7 @@ def build_prompt(conversation_id, user_input, mode="auto", loaded_files=None):
     rag_text = ""
     rag_sources = []
 
-    contexts = search_context(user_input, top_k=5, domain="auto", mode=mode, threshold=0.5)
+    contexts = search_context(user_input, top_k=10, domain="auto", mode=mode, threshold=0.5)
     if contexts:
         rag_text = (
             f"\n\n[SOURCES PERTINENTES — matériaux à intégrer, pas un plan à suivre]\n"
