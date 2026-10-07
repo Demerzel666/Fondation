@@ -179,12 +179,19 @@ def search_context(query, top_k=5, domain="auto", mode="auto", threshold=0.5, re
                     "text": docs[i] if i < len(docs) else "",
                     "source": (metas[i] or {}).get("source", "inconnu"),
                     "title": (metas[i] or {}).get("title", ""),
+                    "type": (metas[i] or {}).get("type", ""),
                     "score": score,
                     "domain": domain,
                 }
 
     # Seuil puis tri par score
     filtered = [c for c in merged.values() if c["score"] > threshold]
+    # === RERANKING THÉTIQUE (NOUVEAU) ===
+    # En mode politique, boost de +0.05 pour les chunks "these"
+    if "politique" in mode.lower():
+        for c in filtered:
+            if c.get("type") == "these":
+                c["score"] += 0.05
     filtered.sort(key=lambda x: x["score"], reverse=True)
 
     # Diversification STRICTE : max 2 chunks par source, pas de fill-back
