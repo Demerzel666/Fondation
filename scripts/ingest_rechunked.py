@@ -33,7 +33,8 @@ if confirmation.strip().lower() != "oui":
     sys.exit(0)
 
 # --- 3. Suppression ancienne ---
-col.delete(ids=anciens)
+if anciens:
+    col.delete(ids=anciens)
 apres_del = col.count()
 print(f"[3] Supprimés. Corpus : {avant} → {apres_del} (delta {avant - apres_del})")
 

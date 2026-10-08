@@ -64,11 +64,15 @@ def et_type(t):
         "n'est pas", "ne peut", "doit être", "au contraire",
         "en réalité", "c'est pourquoi", "la colonisation",
         "le colonialisme", "le nationalisme", "la violence",
+        "we must", "is not", "cannot", "must be", "rather",
+        "in reality", "in fact", "requires", "means that",
     ]
     marqueurs_recit = [
         "il est né", "il meurt", "il a été", "en 19", "cette année",
         "selon", "son livre", "la publication", "revue", "journal",
         "la préface", "l'édition", "l'auteur", "écrit en", "paraît",
+        "was published", "according to", "was born", "the author",
+        "in 19", "written in", "his book",
     ]
     st = sum(1 for m in marqueurs_these if m in tl)
     sn = sum(1 for m in marqueurs_recit if m in tl)
