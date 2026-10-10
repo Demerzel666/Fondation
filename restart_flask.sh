@@ -9,7 +9,7 @@ sleep 2
 
 # Démarrer Flask en arrière-plan
 cd "$(dirname "$0")"
-nohup /home/data/ml_env/bin/python3 src/web/app.py > /tmp/flask.log 2>&1 &
+nohup /home/demerzel/fondation-ia-dev/.venv/bin/python src/web/app.py > /tmp/flask.log 2>&1 &
 
 # Attendre que Flask démarre
 sleep 2

@@ -38,8 +38,7 @@ def validate_session(token):
 
     # 1. Utilisateurs existants : la vraie auth (PBKDF2 + sel)
     user_id = authenticate_user(token)
-    if user_id is not None:
-        return user_id
+    return user_id  # FIX 10/10: branche invite DESACTIVEE au login (retournait un id d'invite comme user_id -> FK error, et consommait les invites sur logins malheureux). /register reste la seule porte pour les invitations.
 
     # 2. Codes d'invite non utilisés
     submitted = hashlib.sha256(token.encode()).hexdigest()
