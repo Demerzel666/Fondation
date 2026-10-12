@@ -7,7 +7,7 @@
 PROJECT_ROOT="$(cd "$(dirname "$(dirname "$0")")" && pwd)"
 
 # binaire llama-server (configurable via env)
-export PATH="${LLAMA_CPP_BIN:-/home/data/llama.cpp/build/bin}:$PATH"
+export PATH="${LLAMA_CPP_BIN:-$HOME/llama.cpp/build/bin}:$PATH"
 
 MODEL="$PROJECT_ROOT/models/Qwen3-Coder-30B-A3B-Q4_K_M/Qwen3-Coder-30B-A3B-Instruct-Q4_K_M.gguf"
 PORT=8081

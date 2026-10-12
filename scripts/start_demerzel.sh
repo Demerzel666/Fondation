@@ -8,6 +8,9 @@ PROJECT_ROOT="$(cd "$(dirname "$(dirname "$0")")" && pwd)"
 # Binaires llama.cpp (chemin local ThinkPad par défaut, configurable)
 export PATH="${LLAMA_CPP_BIN:-$HOME/tools/llama.cpp/build/bin}:$PATH"
 
+LLAMA_BIN="${LLAMA_BIN:-$HOME/llama.cpp/build/bin}"
+export PATH="$LLAMA_BIN:$PATH"
+
 PORT=8080
 MODEL="${DEMERZEL_MODEL:-$PROJECT_ROOT/models/demerzel.gguf}"
 
