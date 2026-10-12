@@ -60,4 +60,4 @@ Règles :
 
 ## CONTEXTE TECHNIQUE
 - OS : Arch Linux (PEP 668 — utiliser pacman ou venv, JAMAIS pip système)
-- Python : /home/data/ml_env/bin/python3 (toujours ce chemin)
+- Python : Le venv du projet (~/fondation-ia-dev/.venv/bin/python), jamais pip système
