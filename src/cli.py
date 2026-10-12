@@ -56,7 +56,7 @@ PYTHON_INTERPRETER = os.environ.get("FONDATION_PYTHON", "/home/data/ml_env/bin/p
 
 LLAMA_CODER_URL = "http://localhost:8081/v1/chat/completions"
 LLAMA_DEMERZEL_URL = "http://localhost:8080/v1/chat/completions"
-SCRIPT_CODER = os.path.join(PROJECT_ROOT, "scripts", "start_coder_v2.sh")
+SCRIPT_CODER = os.path.join(PROJECT_ROOT, "scripts", "start_coder.sh")
 SCRIPT_DEMERZEL = os.path.join(PROJECT_ROOT, "scripts", "start_demerzel.sh")
 MAX_LOADED_FILES = 50
 

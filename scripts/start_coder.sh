@@ -1,6 +1,6 @@
 #!/bin/bash
 # =============================================================================
-# LANCEMENT QWEN3-CODER-30B SUR PORT 8081
+# LANCEMENT DEVSTRAL SMALL 2 (CODER) SUR PORT 8081
 # =============================================================================
 
 # Racine du projet = dossier parent du dossier scripts/
@@ -9,7 +9,7 @@ PROJECT_ROOT="$(cd "$(dirname "$(dirname "$0")")" && pwd)"
 # binaire llama-server (configurable via env)
 export PATH="${LLAMA_CPP_BIN:-$HOME/llama.cpp/build/bin}:$PATH"
 
-MODEL="$PROJECT_ROOT/models/Qwen3-Coder-30B-A3B-Q4_K_M/Qwen3-Coder-30B-A3B-Instruct-Q4_K_M.gguf"
+MODEL="$HOME/fondation-ft-dev/models/devstral-small-2-Q4_K_M.gguf"
 PORT=8081
 
 echo "=== FONDATION-IA : LANCEMENT MODELE CODE ==="
