@@ -80,7 +80,8 @@ def init_db():
             token_hash  TEXT NOT NULL,
             salt        TEXT NOT NULL,
             created_at  TEXT DEFAULT (datetime('now', 'localtime')),
-            active      INTEGER DEFAULT 1
+            active      INTEGER DEFAULT 1,
+            role        TEXT DEFAULT 'user'
         );
 
         CREATE TABLE IF NOT EXISTS invites (
@@ -91,7 +92,21 @@ def init_db():
             created_at  TEXT DEFAULT (datetime('now', 'localtime'))
         );
 
-            CREATE TABLE IF NOT EXISTS settings (
+            CREATE TABLE IF NOT EXISTS queue_requests (
+            id              INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id         INTEGER,
+            conversation_id INTEGER,
+            message_content TEXT,
+            priority        TEXT DEFAULT 'normal',
+            status          TEXT DEFAULT 'pending',
+            created_at      TEXT DEFAULT (datetime('now', 'localtime')),
+            started_at      TEXT,
+            completed_at    TEXT,
+            response_text   TEXT,
+            error_message   TEXT
+        );
+
+        CREATE TABLE IF NOT EXISTS settings (
             key   TEXT PRIMARY KEY,
             value TEXT
         );
