@@ -104,6 +104,7 @@ def send_to_model(payload, mode):
               OU string legacy (enveloppée en message user).
     mode : string ('CHAT', 'CODE', 'POLITIQUE', 'CUISINE')
     """
+    mode = (mode or '').lower()
     from src.queue_manager import acquire_model_lock, release_model_lock
 
     # Attendre le lock (max 5 min)
