@@ -1,0 +1,15 @@
+CORRECTION — Ta réponse précédente est INVALIDE.
+
+PREUVES :
+1. Tu as décrit le CONTENU des fonctions de src/core.py sans les avoir lues.
+   Le GREP ne t'a donné que des NOMS et des NUMÉROS DE LIGNE.
+2. load_notebook ne charge PAS un notebook Jupyter — c'est inventé.
+3. kill_all_servers "implémentation à compléter" — inventé.
+4. compact_result ne prend pas 'grep'/'ls' en minuscules — inventé.
+
+RÈGLE : GREP = noms + lignes, RIEN d'autre. Pour décrire une fonction,
+tu DOIS d'abord la lire : [FUNC:src/core.py|nom_fonction].
+La description de son rôle vient APRÈS lecture, pas avant.
+
+REPRENDS la mission : lis via FUNC les fonctions principales,
+puis rédige data/project_index.txt uniquement à partir du contenu LU.

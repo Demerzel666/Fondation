@@ -1,0 +1,23 @@
+MISSION : Générer data/project_index.txt — l'index de structure du projet Fondation.
+
+CONTEXTE : Le fichier est attendu par le système (src/context.py l'injecte en mode
+code). Il doit lister l'arborescence des sources et un résumé d'une ligne par module.
+
+MÉTHODE ATTENDUE :
+1. [LS:src/] puis [LS:src/web/] puis [LS:scripts/] — découvrir la structure
+2. [GREP:pattern|chemin] sur les fichiers principaux (pattern : ^def |^class )
+3. [WRITE:data/project_index.txt] — rédiger l'index UNIQUEMENT à partir
+   des résultats des outils
+
+CONTRAINTES :
+- Ne PAS lister : .venv, __pycache__, data/, rag/, models/, test_results/, tests/
+- Format GREP : le MOTIF d'abord, le CHEMIN ensuite ([GREP:def |src/core.py])
+- Format : arborescence d'abord, puis liste fichier → rôle (une ligne par fichier)
+- Fichier cible < 200 lignes (injecté dans chaque requête code : concision)
+- Chaque fichier listé doit exister réellement — ZÉRO fichier inventé
+- RÈGLE ABSOLUE : ne jamais décrire le contenu d'un fichier sans l'avoir lu
+  via un outil dans CETTE conversation. Si tu ne sais pas, dis-le.
+- Termine par [DONE]
+
+NOTE : ton CARNET DE MISSION persiste entre les messages. Les étapes
+précédentes y sont compactées — consulte-le plutôt que de relire les fichiers.

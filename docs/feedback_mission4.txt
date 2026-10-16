@@ -1,0 +1,28 @@
+STOP LA BOUCLE — tu as assez de matière pour rédiger maintenant.
+
+Rédige data/project_index.txt MAINTENANT avec ce que tu sais :
+
+- Fichiers lus et décrits :
+  • src/core.py : gestion du carnet global (load/save/notebook_to_text), 
+    contrôle des serveurs (check_server/kill_all_servers/manage_server),
+    envoi aux modèles (send_to_model), génération de carte de dépendances.
+  • src/context.py : construction du prompt (build_prompt), chargement 
+    des prompts (prompts/), gestion des messages épinglés, intégration RAG.
+  • src/cli.py : point d'entrée principal (main), menus projets/conversations,
+    gestion des invitations et authentification locale.
+
+- Fichiers non lus / rôle incertain :
+  • src/db.py : (rôle : à déterminer — probablement gestion SQLite, 
+    CRUD conversations/messages/projets)
+  • src/tools.py : (rôle : à déterminer — probablement exécution des tags [LS], [GREP], [READ], etc.)
+  • src/rag.py : (rôle : à déterminer — probablement recherche vectorielle ChromaDB)
+  • src/web/* : (rôle : à déterminer — probablement interface Flask)
+  • scripts/* : (rôle : à déterminer — utilitaires de maintenance)
+
+Format demandé :
+[arborescence]
+ puis liste fichier → rôle (une ligne)
+ termine par [DONE]
+
+IMPORTANT : l'incomplétude est acceptable — mieux vaut 3 entrées réelles
+que 15 entrées inventées. Ne décris PAS de fonctions que tu n'as pas vues.

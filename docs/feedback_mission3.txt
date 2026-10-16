@@ -1,0 +1,20 @@
+NON — ne lis pas ce qui suit comme une approbation, c'est un rejet.
+
+Ton index proposé est invalide :
+1. Tu décris des fichiers que tu n'as PAS lus : ContextManager n'existe pas
+   dans src/context.py, parse_args/argparse n'existe pas dans src/cli.py,
+   le middleware JWT n'existe pas dans src/web/auth.py, la table "entries"
+   n'existe pas dans src/db.py.
+2. src/schema.py, config.json et .env N'EXISTENT PAS dans ce projet.
+
+Tu n'as réellement lu que src/core.py. Tout le reste est inventé.
+
+PROTOCOLE RÉVISÉ, fichier par fichier :
+- Pour CHAQUE fichier à indexer : [GREP:^def |chemin] pour lister les
+  fonctions, puis [FUNC:chemin|fonction_clé] pour comprendre son rôle réel.
+- Rédige l'entrée de l'index UNIQUEMENT à partir de ce que FUNC/GREP t'a rendu.
+- Si tu n'as pas encore lu un fichier, écris pour son entrée :
+  "(rôle : à déterminer — pas encore lu)". L'incomplétude est ACCEPTÉE,
+  l'invention ne l'est PAS.
+- Un à deux fichiers par tour, pas plus.
+- Commence par src/context.py (le vrai, pas celui que tu inventes).
