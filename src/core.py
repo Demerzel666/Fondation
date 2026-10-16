@@ -236,8 +236,27 @@ def compact_result(tool_type, content):
         return ', '.join(names[:25])
 
     if tool_type in ('READ', 'FUNC', 'SED'):
-        # Taille seulement — le contenu est dans le tour courant
-        return f"{len(content)} chars lus"
+        # Ligne d'essence — la taille seule rend le carnet muet : au moment
+        # de la synthèse, le modèle ne sait plus CE QU'IL A LU et invente
+        # (spécimens #396, #404). On garde 2 premières lignes significatives
+        # + les def/class majeurs — de quoi se souvenir, pas de quoi saturer.
+        sig_lines = []
+        defs_seen = []
+        for l in lines:
+            s = l.strip()
+            if not s:
+                continue
+            stripped = s.lstrip('# =').strip()
+            if not stripped:            # décorations (====, ----)
+                continue
+            if len(sig_lines) < 2:
+                sig_lines.append(stripped[:60])
+            if s.startswith(('def ', 'class ')) and s not in defs_seen:
+                defs_seen.append(s.split('(')[0].split(':')[0])
+        essence = ' / '.join(sig_lines)
+        if defs_seen:
+            essence += ' — defs: ' + ', '.join(defs_seen[:8])
+        return f"{len(content)} chars — essence: {essence[:250]}"
 
     if tool_type in ('EDIT', 'WRITE'):
         return "exécuté"
@@ -510,7 +529,24 @@ def process_message(user_input, conversation_id, mode_state, callbacks=None):
                         f"[RÉSULTAT DE L'OUTIL]\n{tool_results}\n\n"
                     )
 
-            if mode_state.get('active_file'):
+            # ── SUFFIXE DE FIN DE BOUCLE, CONDITIONNÉ PAR TYPE D'OUTIL ──
+            # GREP attend un OUTIL SUIVANT : lui dire "AFFICHE maintenant, [DONE]"
+            # est une contradiction → fabrication (spécimens #384, #386).
+            if t_type == 'GREP':
+                agent_instruction += (
+                    f"IMPORTANT : GREP ne t'a donné QUE des noms et des numéros "
+                    f"de ligne — PAS le contenu des fonctions. "
+                    f"NE décris JAMAIS le contenu d'une fonction que tu n'as pas lue "
+                    f"(interdiction absolue : pas de corps de fonction inventé). "
+                    f"Réponds UNIQUEMENT par le tag de l'outil suivant "
+                    f"([FUNC:chemin|nom_fonction] ou [SED:chemin|start|end]), "
+                    f"ou, si tu as assez de matière pour produire le livrable, "
+                    f"passe à la rédaction via [WRITE:chemin]. "
+                    f"Pas de prose hors de ces deux options."
+                )
+            elif t_type == 'FUNC':
+                pass  # la branche FUNC a déjà sa consigne de fin ([DONE])
+            elif mode_state.get('active_file'):
                 agent_instruction += (
                     f"Tu as maintenant le contenu demandé.\n"
                     f"Consulte la file_map du fichier actif pour identifier les bonnes lignes.\n"
