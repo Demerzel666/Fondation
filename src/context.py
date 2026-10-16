@@ -17,7 +17,7 @@ import os
 import re
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from src.rag import search_context, format_context, detect_domain
-from src.db import get_messages, add_message, get_conversation_summary
+from src.db import get_messages, add_message, get_conversation_summary, get_pinned_messages
 
 MAX_HISTORY_TOKENS = 24000
 MAX_HISTORY_MESSAGES = 10
@@ -113,12 +113,28 @@ def build_prompt(conversation_id, user_input, mode="auto", loaded_files=None):
             "score": round(c.get("score", 0), 3),
             "text": c["text"][:300]
         } for c in contexts]
+    # 3.7. Messages épinglés (pins) → system, PRIORITÉ ABSOLUE, JAMAIS tronqués
+    pinned_msgs = get_pinned_messages(conversation_id)
+    pinned_ids = set()
+    if pinned_msgs:
+        pin_parts = []
+        for pm in pinned_msgs:
+            pinned_ids.add(pm['id'])
+            who = "utilisateur" if pm["role"] == "user" else "IA"
+            pin_parts.append(f"[#{pm['id']}] ({who}) {pm['content']}")
+        system_prompt += (
+            "\n\n--- MESSAGES ÉPINGLÉS (priorité absolue — règles, ordres de mission, livrables validés) ---\n"
+            + "\n\n".join(pin_parts)
+        )
+
     # 4. Liste de messages rolée — LA voie principale
     api_messages = [{"role": "system", "content": system_prompt}]
 
-    # Historique : vraies paires user/assistant
+    # Historique : vraies paires user/assistant (épinglés exclus — déjà dans le system)
     history_msgs = get_messages(conversation_id, limit=MAX_HISTORY_MESSAGES)
     for msg in history_msgs:
+        if msg['id'] in pinned_ids:
+            continue
         content = msg['content'][:MAX_CHARS_PER_MESSAGE]
         if msg["role"] == "user":
             api_messages.append({"role": "user", "content": content})

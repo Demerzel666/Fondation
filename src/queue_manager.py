@@ -41,15 +41,15 @@ def _get_conn():
     return conn
 
 
-def enqueue_request(user_id, conversation_id, message_content, priority='normal'):
+def enqueue_request(user_id, conversation_id, message_content, priority='normal', mode='politique'):
     """Ajoute une requête à la queue. Retourne (req_id, position)."""
     conn = _get_conn()
     cur = conn.cursor()
     
     cur.execute('''
-        INSERT INTO queue_requests (user_id, conversation_id, message_content, priority)
-        VALUES (?, ?, ?, ?)
-    ''', (user_id, conversation_id, message_content, priority))
+        INSERT INTO queue_requests (user_id, conversation_id, message_content, priority, mode)
+        VALUES (?, ?, ?, ?, ?)
+    ''', (user_id, conversation_id, message_content, priority, mode))
     
     req_id = cur.lastrowid
     

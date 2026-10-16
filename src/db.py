@@ -55,6 +55,7 @@ def init_db():
             content         TEXT NOT NULL,
             rag_sources     TEXT,
             token_count     INTEGER DEFAULT 0,
+            pinned         INTEGER DEFAULT 0,
             created_at      TEXT DEFAULT (datetime('now', 'localtime')),
             FOREIGN KEY (conversation_id) REFERENCES conversations(id) ON DELETE CASCADE
         );
@@ -103,7 +104,8 @@ def init_db():
             started_at      TEXT,
             completed_at    TEXT,
             response_text   TEXT,
-            error_message   TEXT
+            error_message   TEXT,
+            mode           TEXT DEFAULT 'politique'
         );
 
         CREATE TABLE IF NOT EXISTS settings (
@@ -557,3 +559,26 @@ if __name__ == "__main__":
     # Nettoyage
     delete_project(pid)
     print("\n[TEST] OK tout marche, isolation validée.")
+
+# =============================================================================
+# PINS — messages épinglés (priorité absolue dans le contexte, jamais tronqués)
+# Plafond 5 épinglés/conversation (appliqué côté CLI)
+# =============================================================================
+
+def set_pin(message_id, pinned=1):
+    """Épingle (1) ou désépingle (0) un message."""
+    conn = get_conn()
+    conn.execute("UPDATE messages SET pinned = ? WHERE id = ?", (pinned, message_id))
+    conn.commit()
+    conn.close()
+
+def get_pinned_messages(conversation_id):
+    """Messages épinglés d'une conversation, du plus ancien au plus récent."""
+    conn = get_conn()
+    rows = conn.execute(
+        "SELECT id, role, content FROM messages "
+        "WHERE conversation_id = ? AND pinned = 1 ORDER BY id ASC",
+        (conversation_id,)
+    ).fetchall()
+    conn.close()
+    return rows

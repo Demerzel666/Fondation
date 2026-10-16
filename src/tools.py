@@ -342,6 +342,9 @@ def execute_tools(response):
             parts = re.split(r'\|', target, maxsplit=1)
             if len(parts) == 2:
                 pattern, path = parts
+                # Tolérance inversion : si le "chemin" n'existe pas mais que le "pattern" est un fichier, swap
+                if not os.path.isfile(resolve_path(path)) and os.path.isfile(resolve_path(pattern)):
+                    pattern, path = path, pattern
                 result = tool_grep(pattern, path)
             else:
                 result = "[ERROR] Format GREP: [GREP:pattern|chemin]"

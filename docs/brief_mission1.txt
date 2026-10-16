@@ -1,0 +1,20 @@
+MISSION : Générer data/project_index.txt — l'index de structure du projet Fondation.
+
+CONTEXTE : Le fichier est attendu par le système (src/context.py l'injecte en mode
+code) mais n'existe pas. Il doit lister l'arborescence des sources et un résumé
+d'une ligne par module (rôle probable selon son contenu).
+
+MÉTHODE ATTENDUE :
+1. [LS:src/] puis [LS:src/web/] — découvrir la structure
+2. [GREP:src/<fichier>|^def |^class ] sur les fichiers principaux — repérer
+   fonctions et classes clés
+3. [WRITE:data/project_index.txt] — rédiger l'index
+
+CONTRAINTES :
+- Ne PAS lister : .venv, __pycache__, data/raw_texts, rag/, models/, test_results/
+- Format : arborescence d'abord, puis tableau ou liste fichier → rôle
+- Fichier cible < 200 lignes (il est injecté dans chaque requête code : la
+  concision compte)
+- Termine par [DONE]
+
+VALIDATION (moi, humain) : je relis le fichier, je le compare au repo réel.

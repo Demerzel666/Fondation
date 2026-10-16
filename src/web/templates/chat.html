@@ -129,7 +129,12 @@
             <input type="hidden" name="conversation_id" value="{{ current_conv }}">
             <input type="hidden" name="project_id" value="{{ current_project }}">
             <textarea name="text" placeholder="Écris ton message..." rows="3" required></textarea>
-            <button type="submit">Envoyer</button>
+            <select name="mode" title="Modèle à utiliser">
+    <option value="politique" {% if current_mode == 'politique' %}selected{% endif %}>Politique</option>
+    <option value="chat" {% if current_mode == 'chat' %}selected{% endif %}>Chat</option>
+    <option value="code" {% if current_mode == 'code' %}selected{% endif %}>Code</option>
+</select>
+<button type="submit">Envoyer</button>
         </form>
         {% else %}
         <div class="input-form disabled-form">

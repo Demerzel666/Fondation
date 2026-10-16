@@ -26,8 +26,9 @@ from src.db import create_conversation, list_conversations, delete_conversation,
 from src.db import add_message
 from src.db import list_users, deactivate_user, activate_user, create_invite_code, create_invite, register_new_user, get_conn
 from src.db import create_workspace, add_workspace_file, get_workspace
+from src.db import set_pin, get_pinned_messages
 from src.context import build_prompt, save_response
-from src.core import send_to_model, generate_file_map, manage_server
+from src.core import send_to_model, generate_file_map, manage_server, load_notebook, NOTEBOOK_PATH
 from src.queue_manager import acquire_model_lock, release_model_lock
 
 def send_with_queue(message, mode):
@@ -298,6 +299,12 @@ def run_chat_loop(mode_state):
     print(f"Projet : {mode_state['project']['name']}")
     print(f"Conversation : #{mode_state['conversation_id']}")
     print(f"Mode : {mode_state['mode'].upper()} (/mode pour changer)")
+
+    nb = load_notebook()
+    if nb and nb.get('mission'):
+        mission_flat = ' '.join(str(nb.get('mission', '')).split())
+        print(f"📔 Carnet de mission actif : {mission_flat[:80]}")
+        print(f"   {len(nb.get('steps', []))} étapes | {nb.get('iter_total', 0)} itérations totales | /new-mission pour réinitialiser")
     print(f"Commandes : /mode, /multi, /load, /files, /audit, /history, /sources, /menu, /quit")
     print(f"{'='*60}\n")
 
@@ -488,6 +495,55 @@ def run_chat_loop(mode_state):
                         print(f"✅ Mode {new_mode.upper()} prêt et occupé {vram_info['used']:.1f}/{vram_info['total']:.1f}Go de VRAM.")
                     else:
                         print(f"❌ Échec démarrage {new_mode}. Mode inchangé.")
+                    continue
+
+                elif cmd == '/pin':
+                    target_id = None
+                    if args and str(args).strip().isdigit():
+                        target_id = int(str(args).strip())
+                    else:
+                        last_msgs = get_messages(mode_state['conversation_id'], limit=1)
+                        if not last_msgs:
+                            print("Aucun message à épingler dans cette conversation.")
+                            continue
+                        target_id = last_msgs[0]['id']
+
+                    conv_msgs = get_messages(mode_state['conversation_id'])
+                    if not any(m['id'] == target_id for m in conv_msgs):
+                        print(f"❌ Message #{target_id} introuvable dans la conversation #{mode_state['conversation_id']}.")
+                        continue
+
+                    pinned_now = get_pinned_messages(mode_state['conversation_id'])
+                    already = any(m['id'] == target_id for m in pinned_now)
+                    if not already and len(pinned_now) >= 5:
+                        print("❌ Plafond de 5 épinglés atteint. /unpin d'abord.")
+                        continue
+
+                    set_pin(target_id, 1)
+                    count = len(pinned_now) + (0 if already else 1)
+                    print(f"📌 Message #{target_id} épinglé ({count}/5) — priorité absolue dans le contexte.")
+                    continue
+
+                elif cmd == '/unpin':
+                    if args and str(args).strip().isdigit():
+                        target_id = int(str(args).strip())
+                    else:
+                        pinned_now = get_pinned_messages(mode_state['conversation_id'])
+                        if not pinned_now:
+                            print("Aucun épinglé dans cette conversation.")
+                            continue
+                        target_id = pinned_now[-1]['id']
+                    set_pin(target_id, 0)
+                    print(f"🔓 Message #{target_id} désépinglé.")
+                    continue
+
+                elif cmd == '/new-mission':
+                    try:
+                        os.remove(NOTEBOOK_PATH)
+                    except FileNotFoundError:
+                        pass
+                    mode_state.pop('notebook', None)
+                    print("🗑️ Carnet de mission effacé. La prochaine tâche en mode code ouvrira une nouvelle mission.")
                     continue
 
                 elif cmd == '/load':
@@ -1167,6 +1223,9 @@ def run_chat_loop(mode_state):
                     print("  /workspace add <fichier>       Ajouter un fichier actif au workspace")
                     print("  /workspace remove <fichier>    Retirer un fichier actif du workspace")
                     print("  /user                          - Gestion des utilisateurs (create/list/deactivate)")
+                    print("  /pin [id]                      Épingler un message (priorité absolue dans le contexte)")
+                    print("  /unpin [id]                    Désépingler un message")
+                    print("  /new-mission                   Réinitialiser le carnet de mission")
                     print()
                     continue
 

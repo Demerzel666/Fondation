@@ -14,7 +14,9 @@ PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(_
 sys.path.insert(0, PROJECT_ROOT)
 
 app = Flask(__name__)
-app.config['SECRET_KEY'] = 'foundation-secret-key-change-in-production'
+_secret_file = os.path.expanduser('~/secrets/fondation_secret.key')
+with open(_secret_file) as _f:
+    app.config['SECRET_KEY'] = _f.read().strip()  # FIX 12/10: cle secrete externe au repo, non commitable
 app.config['SESSION_COOKIE_HTTPONLY'] = True
 app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
 
@@ -195,7 +197,7 @@ def index():
 
     # Affichage normal du chat
     return render_template('chat.html',
-        username=session.get('username', ''),
+        username=session.get('username', ''), current_mode=session.get('mode', 'politique'),
         projects=projects,
         conversations=conversations,
         messages=messages,
@@ -229,9 +231,13 @@ def send_message():
     row = conn.execute('SELECT role FROM users WHERE id = ?', (user_id,)).fetchone()
     conn.close()
     priority = 'admin' if row and row[0] == 'admin' else 'normal'
+    mode = request.form.get('mode', 'politique')
+    if mode not in ('politique', 'chat', 'code'):
+        mode = 'politique'
+    session['mode'] = mode
     
     # Enregistrer dans la queue et rediriger vers le polling
-    req_id, position = enqueue_request(user_id, conv_id, message, priority)
+    req_id, position = enqueue_request(user_id, conv_id, message, priority, mode)
     return redirect(url_for('queue_wait', req_id=req_id, project=project_id))
 
 @app.route('/queue/<int:req_id>')
@@ -246,7 +252,7 @@ def queue_wait(req_id):
     
     conn = get_conn()
     req = conn.execute(
-        'SELECT user_id, conversation_id, message_content FROM queue_requests WHERE id = ?',
+        'SELECT user_id, conversation_id, message_content, mode FROM queue_requests WHERE id = ?',
         (req_id,)
     ).fetchone()
     conn.close()
@@ -273,7 +279,7 @@ def queue_wait(req_id):
     # Quelqu'un devant → bulle "Position X"
     if ahead > 0:
         return render_template('chat.html',
-            username=session.get('username', ''),
+            username=session.get('username', ''), current_mode=session.get('mode', 'politique'),
             projects=[],
             conversations=[],
             messages=[],
@@ -289,7 +295,7 @@ def queue_wait(req_id):
     # Deuxième passe (process=1) → afficher "Demerzel réfléchit"
     if request.args.get('process') == '1':
         return render_template('chat.html',
-            username=session.get('username', ''),
+            username=session.get('username', ''), current_mode=session.get('mode', 'politique'),
             projects=[],
             conversations=[],
             messages=[],
@@ -306,7 +312,7 @@ def queue_wait(req_id):
         try:
             response = send_to_model(
                 message,
-                mode=session.get('mode', 'politique')
+                mode=(req['mode'] or 'politique')
             )
             
             if not response.startswith("[ERROR]"):
@@ -320,7 +326,7 @@ def queue_wait(req_id):
     
     # Première passe → "Position 1"
     return render_template('chat.html',
-        username=session.get('username', ''),
+        username=session.get('username', ''), current_mode=session.get('mode', 'politique'),
         projects=[],
         conversations=[],
         messages=[],
@@ -475,7 +481,7 @@ def edit_project_context(project_id):
 
     context = get_project_context(project_id)
     return render_template('chat.html',
-        username=session.get('username', ''),
+        username=session.get('username', ''), current_mode=session.get('mode', 'politique'),
         projects=projects,
         conversations=[],
         messages=[],
@@ -503,7 +509,7 @@ def edit_global_context():
 
     context = get_global_context()
     return render_template('chat.html',
-        username=session.get('username', ''),
+        username=session.get('username', ''), current_mode=session.get('mode', 'politique'),
         projects=projects,
         conversations=[],
         messages=[],
@@ -525,7 +531,7 @@ def full_history(conv_id):
     projects = list_projects(user_id)
 
     return render_template('chat.html',
-        username=session.get('username', ''),
+        username=session.get('username', ''), current_mode=session.get('mode', 'politique'),
         projects=projects,
         conversations=[],
         messages=messages,

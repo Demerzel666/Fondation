@@ -38,7 +38,7 @@ Tu disposes d'outils pour naviguer dans le code. Écris ces tags dans ta répons
 
 [READ:chemin]                    → Lit un fichier (< 15Ko)
 [FUNC:chemin|nom_fonction]       → Extrait une FONCTION COMPLÈTE (recommandé pour les fonctions)
-[GREP:chemin|pattern]            → Trouve des lignes avec numéros
+[GREP:pattern|chemin]            → Trouve des lignes avec numéros (ex: [GREP:def process|src/core.py])
 [SED:chemin|start|end]           → Lit un range de lignes
 [LS:chemin]                      → Liste un dossier
 [WRITE:chemin]                   → Crée un fichier (contenu suit le tag)

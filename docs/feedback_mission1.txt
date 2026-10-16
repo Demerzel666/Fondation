@@ -1,0 +1,19 @@
+CORRECTION — Ta réponse précédente est INVALIDE.
+
+PREUVES :
+1. Tu affirms que src/ contient main.py, utils.py, app.py — FAUX.
+2. Tu cites un lien GitHub (nicolasbouillot/fondation-ia-dev) — CE REPO
+   N'EXISTE PAS. Le vrai repo est github.com/Demerzel666/Fondation.
+3. Tu as rédigé l'index SANS exécuter [LS] ni [GREP]. Tu as inventé.
+
+PROCHAINE ITÉRATION — RÈGLES STRICTES :
+1. Commence par [LS:src/] — et rien d'autre dans ce tour.
+2. Attends le résultat, puis [LS:src/web/], puis [LS:scripts/].
+3. Utilise [GREP] sur les fichiers principaux pour identifier leurs
+   fonctions (pattern : ^def |^class ).
+4. Rédige l'index UNIQUEMENT à partir de ce que les outils te renvoient.
+   Zéro fichier inventé, zéro lien externe.
+5. Termine par [DONE].
+
+RÈGLE D'APPRENTISSAGE PERMANENTE : ne jamais décrire le contenu d'un
+fichier sans l'avoir lu via un outil dans CETTE conversation.

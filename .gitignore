@@ -48,3 +48,7 @@ rag/
 
 models/
 dataset/
+*.db-shm
+*.db-wal
+*.tar.gz
+test_results/

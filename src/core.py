@@ -20,8 +20,41 @@ import re
 import requests
 import subprocess
 import time
+import json
 
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+# ── CARNET DE MISSION (composante A) ─────────────────────────────
+NOTEBOOK_PATH = os.path.join(PROJECT_ROOT, "data", "agent_notebook.json")
+NOTEBOOK_MAX_STEPS = 15
+
+def load_notebook():
+    """Charge le carnet global (reprise cross-conversation). None si absent/corrompu."""
+    try:
+        with open(NOTEBOOK_PATH, 'r', encoding='utf-8') as f:
+            return json.load(f)
+    except (FileNotFoundError, json.JSONDecodeError):
+        return None
+
+def save_notebook(notebook):
+    """Écriture atomique : temp + rename. Reset MANUEL uniquement."""
+    os.makedirs(os.path.dirname(NOTEBOOK_PATH), exist_ok=True)
+    tmp = NOTEBOOK_PATH + ".tmp"
+    with open(tmp, 'w', encoding='utf-8') as f:
+        json.dump(notebook, f, ensure_ascii=False, indent=1)
+    os.replace(tmp, NOTEBOOK_PATH)
+
+def notebook_to_text(nb):
+    """Rendu du carnet pour injection dans agent_system."""
+    if not nb or (not nb.get('steps') and not nb.get('mission')):
+        return ""
+    parts = [f"Mission: {nb.get('mission', '(non capturée)')}"]
+    for s in nb.get('steps', []):
+        parts.append(f"- [{s.get('iter', '?')}] {s.get('tool', '?')} {s.get('target', '')}: {s.get('result', '')}")
+    rf = nb.get('read_files', [])
+    parts.append(f"Fichiers déjà vus: {', '.join(rf) if rf else '(aucun)'}")
+    parts.append(f"Itérations totales: {nb.get('iter_total', 0)}")
+    return "\n".join(parts)
 
 # ── PROFILS DE MODES (toggle thinking uniquement) ───────────────
 # Les system prompts vivent dans prompts/*.txt (chargés par src/context.py).
@@ -181,6 +214,35 @@ def generate_file_map(filepath):
 
 
 # ── PIPELINE PRINCIPAL ───────────────────────────────────────────
+
+
+def compact_result(tool_type, content):
+    """Compacte le résultat d'un outil pour le carnet (1-2 lignes max).
+    Le contenu complet vit uniquement dans le tour courant, jamais stocké."""
+    if not content:
+        return ""
+    lines = content.split('\n')
+
+    if tool_type == 'GREP':
+        # 20 premières lignes + compte du reste
+        out = '\n'.join(lines[:20])
+        if len(lines) > 20:
+            out += f"\n... (+{len(lines)-20} lignes)"
+        return out[:300]
+
+    if tool_type == 'LS':
+        # Noms seuls, sans __pycache__, 25 max
+        names = [l.strip() for l in lines if l.strip() and '__pycache__' not in l]
+        return ', '.join(names[:25])
+
+    if tool_type in ('READ', 'FUNC', 'SED'):
+        # Taille seulement — le contenu est dans le tour courant
+        return f"{len(content)} chars lus"
+
+    if tool_type in ('EDIT', 'WRITE'):
+        return "exécuté"
+
+    return content[:150]
 
 def process_message(user_input, conversation_id, mode_state, callbacks=None):
     """Pipeline complet : contexte → RAG → messages rolés → modèle.
@@ -346,7 +408,28 @@ def process_message(user_input, conversation_id, mode_state, callbacks=None):
 
         agent_max_iter = 10
         agent_system = api_messages[0]["content"]  # system prompt + contexte code
-        read_files = set()
+
+        # ── CARNET DE MISSION : chargement ou création (reset manuel uniquement) ──
+        notebook = mode_state.get('notebook')
+        if notebook is None:
+            notebook = load_notebook()  # reprise cross-conversation via data/agent_notebook.json
+            if notebook is None:
+                notebook = {
+                    'conversation_origin': conversation_id,
+                    'created_at': time.strftime('%Y-%m-%dT%H:%M:%S'),
+                    'mission': user_input[:500],
+                    'steps': [],
+                    'iter_total': 0,
+                    'read_files': [],
+                }
+            mode_state['notebook'] = notebook
+
+        carnet_text = notebook_to_text(notebook)
+        if carnet_text:
+            agent_system += ("\n\n--- CARNET DE MISSION (mémoire persistante de la tâche) ---\n"
+                             + carnet_text
+                             + "\n--- FIN DU CARNET ---")
+        read_files = set(notebook.get('read_files', []))  # amorcé depuis le carnet (persistant)
 
         for agent_iter in range(agent_max_iter):
             tools_found = extract_tools(ai_content)
@@ -357,16 +440,21 @@ def process_message(user_input, conversation_id, mode_state, callbacks=None):
             t_type, t_target, t_content = tools_found[0]
 
             if t_type == 'READ' and t_target in read_files:
-                tool_results = "(fichier déjà lu précédemment)"
                 agent_instruction = (
-                    "Voici le contenu du fichier demandé.\n\n"
-                    f"{tool_results}\n\n"
-                    "Réponds UNIQUEMENT avec ce contenu, sans aucun tag. "
-                    "Copie-colle le contenu du fichier puis termine avec [DONE]"
+                    f"[REQUÊTE UTILISATEUR]\n{user_input}\n\n"
+                    f"Le fichier {t_target} a DÉJÀ été lu lors d'une étape antérieure "
+                    f"(visible dans le CARNET DE MISSION). Son contenu n'est PAS dans le contexte actuel. "
+                    f"NE LE RECOPIE PAS et NE L'INVENTE SURTOUT PAS. "
+                    f"Si tu as besoin de relire une zone précise, utilise "
+                    f"[SED:{t_target}|ligne_debut|ligne_fin]. "
+                    f"Puis réponds à la requête avec ce que tu sais déjà, termine avec [DONE]."
                 )
             else:
                 if t_type == 'READ':
                     read_files.add(t_target)
+                    rf = notebook.setdefault('read_files', [])
+                    if t_target not in rf:
+                        rf.append(t_target)
 
                 if t_type == 'FUNC':
                     fake_resp = f"[FUNC:{t_target}|{t_content}]"
@@ -377,8 +465,29 @@ def process_message(user_input, conversation_id, mode_state, callbacks=None):
 
                 tool_log, tool_results = execute_tools(fake_resp)
 
+                # ── CARNET : enregistrement compacté de l'étape ──
+                notebook['steps'].append({
+                    'iter': notebook['iter_total'] + 1,
+                    'tool': t_type,
+                    'target': t_target,
+                    'result': compact_result(t_type, tool_results),
+                })
+                notebook['iter_total'] += 1
+                if len(notebook['steps']) > NOTEBOOK_MAX_STEPS:
+                    kept = notebook['steps'][-(NOTEBOOK_MAX_STEPS - 1):]
+                    dropped = len(notebook['steps']) - (NOTEBOOK_MAX_STEPS - 1)
+                    notebook['steps'] = [{
+                        'iter': '-',
+                        'tool': 'HISTORIQUE',
+                        'target': '',
+                        'result': f"({dropped} étapes antérieures omises, mission en cours depuis {notebook['iter_total']} itérations)",
+                    }] + kept
+                save_notebook(notebook)
+
                 if tool_log:
-                    cb('tool', f"{tool_log} ({agent_iter+1}/{agent_max_iter})")
+                    carnet_chars = len(json.dumps(notebook, ensure_ascii=False))
+                    cb('tool', f"{tool_log} ({agent_iter+1}/{agent_max_iter}) "
+                               f"[carnet: {len(notebook['steps'])} étapes, ~{carnet_chars // 4} tokens]")
 
                 if t_type == 'GREP':
                     agent_instruction = (
@@ -447,5 +556,10 @@ def process_message(user_input, conversation_id, mode_state, callbacks=None):
             ai_content,
             rag_sources=context_result['rag_sources']
         )
+
+    # ── CARNET : filet — mission capturée sans outil exécuté ──
+    nb_final = mode_state.get('notebook')
+    if nb_final is not None:
+        save_notebook(nb_final)
 
     return ai_content, context_result['rag_sources']
