@@ -40,8 +40,8 @@ models/embeddings/
 models/checksums.txt
 fondation.db
 *.db
-data/
-data/
+data/*
+!data/project_index.txt
 
 # IA locale — jamais sur le repo public
 rag/

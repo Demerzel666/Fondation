@@ -1,0 +1,86 @@
+# ============================================================================
+# INDEX DE STRUCTURE — PROJET FONDATION
+# Écrit humain+Lumo le 16/10/2026, sur lectures réelles (oct. 2026).
+# Baseline écrite humain+Lumo le 16/10/2026 (lectures réelles).
+# L'agent PEUT maintenir cet index — UNIQUEMENT par missions bornées :
+# une entrée par mission, ajoutée après lecture réelle du fichier
+# concerné ([GREP]+[FUNC]). Aucune réécriture en bloc. Toute entrée
+# ajoutée doit refléter ce que les outils ont réellement retourné.
+# ============================================================================
+
+## Arborescence
+.
+├── src/                  # Code applicatif (9 modules + web/)
+│   └── web/              # Interface Flask (app.py, auth.py, templates/, static/)
+├── scripts/              # Lancement/arrêt serveurs, maintenance
+├── prompts/              # Prompts système par mode (code/politique/chat)
+├── docs/                 # Documentation et briefs de mission
+├── data/                 # Données (DB, carnet agent, RAG) — hors git
+├── rag/                  # Collections ChromaDB — hors git
+└── *.sh                  # Scripts d'environnement racine (venv, restart_flask)
+
+## Modules src/
+
+src/core.py
+  Engine partagé CLI/web. process_message() : boucle agentique (10 itérations
+  max, instructions conditionnées par type d'outil). Carnet de mission :
+  load_notebook/save_notebook/notebook_to_text (data/agent_notebook.json),
+  compact_result() avec ligne d'essence. check_server/kill_all_servers/
+  manage_server (cycle de vie llama.cpp). send_to_model (port 8080 Demerzel,
+  8081 Coder). generate_file_map (carte fonctions pour éditions).
+
+src/context.py
+  Assemblage du contexte : build_prompt() — system prompt par mode + contexte
+  global/projet + fichiers /load + project_index (mode code) + RAG en annexe
+  user + messages épinglés (section 3.7, priorité absolue, anti-duplication)
+  + historique 10 messages tronqués 600 chars. Constantes MAX_HISTORY_*,
+  MAX_CHARS_PER_FILE=8000. save_response() → SQLite.
+
+src/cli.py
+  Point d'entrée terminal. main() : menus projets/conversations, mode_state.
+  run_chat_loop(). Commandes : /mode /load /pin /unpin /new-mission /help.
+  Parseur SEARCH-REPLACE pour éditions. Affichage carnet au boot.
+
+src/db.py
+  Persistance SQLite (WAL) : projets, conversations, messages (colonne pinned),
+  users/invites (tokens), workspaces, contexte global/projet. FK ON DELETE
+  CASCADE côté application.
+
+src/tools.py
+  Exécution des tags agent : [LS] [READ] [GREP pattern|chemin] [SED chemin|d|f]
+  [FUNC chemin|fonction] [WRITE] [EDIT] + retour tuple (log, résultats).
+  resolve_path (PROJECT_ROOT). Tolérance inversion pattern/chemin pour GREP.
+
+src/rag.py
+  Recherche vectorielle ChromaDB : search_context (top-k, threshold),
+  format_context, detect_domain. Embeddings multilingual-e5-small.
+  Collections : fondation_knowledge (3164 chunks), fondation_code (VIDE).
+
+src/ingest_code.py
+  Ingestion du code source dans la collection fondation_code (RAG du repo,
+  non peuplée à ce jour).
+
+src/queue_manager.py
+  File d'attente des requêtes web (traitement asynchrone, table queue_requests
+  avec colonne mode). (rôle : estimation honnête — relu rapidement)
+
+src/hello_test.py
+  Test minimal hello world (mode code, chaîne web de validation).
+
+src/web/app.py
+  Interface Flask : register/login (invites), projets, conversations,
+  chat avec dropdown mode, endpoints votes. restart via restart_flask.sh.
+
+src/web/auth.py
+  Authentification/permissions web (petit, 2Ko).
+  (rôle : estimation honnête — relu rapidement)
+
+src/web/templates/, src/web/static/
+  Templates HTML (chat.html) et assets. Design HTML pur, zéro JS.
+
+## scripts/ (rôle : gestion des serveurs d'inférence)
+  start_demerzel.sh (port 8080, autodétection CPU/RAM/GPU ROCm),
+  start_coder.sh (port 8081, Devstral Q4_K_M, -ngl 99 -c 32768),
+  stop_all.sh, scripts de maintenance.
+
+## Exclusions assumées : .venv, __pycache__, data/, rag/, models/, test_results/
